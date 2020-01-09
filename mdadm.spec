@@ -1,28 +1,22 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
-Version:     3.3
-Release:     6%{?dist}.1
+Version:     3.3.2
+Release:     5%{?dist}
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
 Source3:     mdadm.rules
 Source4:     mdadm-raid-check-sysconfig
 Source5:     mdadm-cron
-Patch1:      mdadm-3.3-Work-around-architectures-having-statfs.f_type-defin.patch
-Patch2:      mdadm-3.3-Be-consistent-in-return-types-from-byteswap-macros.patch
-Patch3:      mdadm-3.3-imsm-support-for-second-AHCI-controller-in-EFI-mode.patch
-Patch4:      mdadm-3.3-imsm-improved-platform-capabilities-checking.patch
-Patch5:      mdadm-3.2.6-IMSM-don-t-crash-when-creating-an-array-with-missing.patch
-Patch6:      mdadm-3.3-policy-NULL-path-isn-t-really-acceptable-use-the-dev.patch
-Patch7:      mdadm-3.3-Create-don-t-default-to-bitmap-internal-when-it-is-n.patch
-Patch8:      mdadm-3.3-imsm-retry-load_and_parse_mpb-if-we-suspect-mdmon-ha.patch
-Patch9:      mdadm-3.3-Assemble-avoid-infinite-loop-when-auto-assembling-pa.patch
-Patch10:     mdadm-3.3-IMSM-Add-warning-message-when-assemble-spanned-conta.patch
-Patch11:     mdadm-3.3-Do-not-set-default-before.layout-when-reshaping-from.patch
-Patch12:     mdadm-3.3-Grow-fix-removal-of-line-in-wrong-case.patch
-Patch13:     mdadm-3.3-config-set-auto_seen-after-processing-the-auto-line.patch
-Patch97:     mdadm-3.3-disable-ddf.patch
-Patch98:     mdadm-3.3-udev.patch
+Patch1:      mdadm-3.3.2-imsm-support-for-OROMs-shared-by-multiple-HBAs.patch
+Patch2:      mdadm-3.3.2--imsm-support-for-second-and-combined-AHCI-controller.patch
+Patch3:      mdadm-3.3.2-imsm-use-efivarfs-interface-for-reading-UEFI-variabl.patch
+Patch4:      mdadm-3.3.2-imsm-add-support-for-NVMe-devices.patch
+Patch5:      mdadm-3.3.2-imsm-detail-platform-improvements.patch
+Patch6:      mdadm-3.3.2-imsm-simplified-multiple-OROMs-support.patch
+Patch7:      mdadm-3.3.2-IMSM-Count-arrays-per-orom.patch
+Patch97:     mdadm-3.3.2-disable-ddf.patch
+Patch98:     mdadm-3.3.2-udev.patch
 Patch99:     mdadm-3.3-makefile.patch
 # Patches not upstream yet
 URL:         http://www.kernel.org/pub/linux/utils/raid/mdadm/
@@ -45,19 +39,13 @@ file can be used to help with some common tasks.
 
 %prep
 %setup -q
-%patch1 -p1 -b .statfs
-%patch2 -p1 -b .byteswaptypes
-%patch3 -p1 -b .efimode
-%patch4 -p1 -b .platcheck
-%patch5 -p1 -b .missing
-%patch6 -p1 -b .nullpolicy
-%patch7 -p1 -b .bitmap
-%patch8 -p1 -b .reshape
-%patch9 -p1 -b .infinite
-%patch10 -p1 -b .span
-%patch11 -p1 -b .deflayout
-%patch12 -p1 -b .wronggrow
-%patch13 -p1 -b .auto
+%patch1 -p1 -b .hba
+%patch2 -p1 -b .combine
+%patch3 -p1 -b .efivar
+%patch4 -p1 -b .nvme
+%patch5 -p1 -b .detail
+%patch6 -p1 -b .simple
+%patch7 -p1 -b .count
 %patch97 -p1 -b .ddf
 %patch98 -p1 -b .udev
 %patch99 -p1 -b .static
@@ -68,7 +56,7 @@ make %{?_smp_mflags} CXFLAGS="$RPM_OPT_FLAGS" SYSCONFDIR="%{_sysconfdir}" mdadm 
 %install
 rm -rf %{buildroot}
 make DESTDIR=%{buildroot} MANDIR=%{_mandir} BINDIR=/sbin install
-rm -f %{buildroot}/lib/udev/rules.d/64*
+rm -f %{buildroot}/lib/udev/rules.d/6[34]*
 install -Dp -m 755 %{SOURCE1} %{buildroot}%{_initrddir}/mdmonitor
 install -Dp -m 755 %{SOURCE2} %{buildroot}%{_sbindir}/raid-check
 install -Dp -m 644 %{SOURCE3} %{buildroot}/lib/udev/rules.d/65-md-incremental.rules
@@ -108,9 +96,26 @@ fi
 %attr(0700,root,root) %dir /var/run/mdadm
 
 %changelog
-* Wed Nov 12 2014 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3-6.1
+* Tue May 19 2015 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.2-5
+- Fix race condition when assembling IMSM volumes with mdadm -As
+- Resolves bz1146994
+
+* Fri Apr 17 2015 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.2-4
+- Fix problem where mdadm allowed the creation of more arrays than
+  supported by the BIOS.
+- Resolves bz1211564
+
+* Tue Apr 14 2015 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.2-3
+- Add missing patches to support IMSM RAID spanning NVMe controllers
+- Resolves bz1211500
+
+* Wed Feb 11 2015 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.2-2
+- Do not install superfluous udev rule
+- Resolves bz1146536
+
+* Sat Nov 1 2014 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3-7
 - Fix problem with mdadm.conf AUTO=-all not being handled correctly
-- Resolves bz1162976
+- Resolves bz1159399
 
 * Wed Sep 3 2014 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3-6
 - Fix problem with reshape of IMSM RAID arrays failing to start
