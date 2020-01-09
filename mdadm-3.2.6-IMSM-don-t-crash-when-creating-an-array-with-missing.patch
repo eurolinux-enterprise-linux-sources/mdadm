@@ -1,0 +1,30 @@
+From 1ca5c8e0c74946f4fcd74e97c5f48fba482d9596 Mon Sep 17 00:00:00 2001
+From: NeilBrown <neilb@suse.de>
+Date: Tue, 21 Jan 2014 09:40:02 +1100
+Subject: [PATCH] IMSM: don't crash when creating an array with missing
+ devices.
+
+'missing' devices are in a different list so when collection the
+serial numbers of all devices we need to check both lists.
+
+Signed-off-by: NeilBrown <neilb@suse.de>
+---
+ super-intel.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/super-intel.c b/super-intel.c
+index c103ffd..f0a7ab5 100644
+--- a/super-intel.c
++++ b/super-intel.c
+@@ -5210,6 +5210,8 @@ static int create_array(struct supertype *st, int dev_idx)
+ 		int idx = get_imsm_disk_idx(dev, i, MAP_X);
+ 
+ 		disk = get_imsm_disk(super, idx);
++		if (!disk)
++			disk = get_imsm_missing(super, idx);
+ 		serialcpy(inf[i].serial, disk->serial);
+ 	}
+ 	append_metadata_update(st, u, len);
+-- 
+1.8.5.3
+

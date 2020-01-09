@@ -1,0 +1,34 @@
+From 39917e56ccbabe0b53771ea698c1284b14c62fa3 Mon Sep 17 00:00:00 2001
+From: Artur Paszkiewicz <artur.paszkiewicz@intel.com>
+Date: Tue, 15 Apr 2014 10:01:44 +0200
+Subject: [PATCH] Create: don't default to bitmap=internal when it is not
+ supported
+
+For large arrays (component size > 100GB) if write-intent bitmap is not
+enabled, then it is set by default to "internal", even if the metadata
+format does support internal bitmaps, which causes Create to fail.
+
+This patch adds checking if add_internal_bitmap is set in the
+superswitch before setting bitmap_file to "internal".
+
+Signed-off-by: Artur Paszkiewicz <artur.paszkiewicz@intel.com>
+Signed-off-by: NeilBrown <neilb@suse.de>
+---
+ Create.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Create.c b/Create.c
+index 98bbdd4..1ab4364 100644
+--- a/Create.c
++++ b/Create.c
+@@ -509,6 +509,7 @@ int Create(struct supertype *st, char *mddev,
+ 
+ 	if (!s->bitmap_file &&
+ 	    s->level >= 1 &&
++	    st->ss->add_internal_bitmap &&
+ 	    (s->write_behind || s->size > 100*1024*1024ULL)) {
+ 		if (c->verbose > 0)
+ 			pr_err("automatically enabling write-intent bitmap on large array\n");
+-- 
+1.9.3
+
