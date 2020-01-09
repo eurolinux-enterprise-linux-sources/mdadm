@@ -1,13 +1,26 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
 Version:     3.3.4
-Release:     1%{?dist}
+Release:     1%{?dist}.5
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
 Source3:     mdadm.rules
 Source4:     mdadm-raid-check-sysconfig
 Source5:     mdadm-cron
+Patch1:      mdadm-3.3.4-imsm-don-t-call-abort_reshape-in-imsm_manage_reshape.patch
+Patch2:      mdadm-3.3.4-Grow-close-file-descriptor-earlier-to-avoid-still-in.patch
+Patch3:      mdadm-3.3.4-imsm-abort-reshape-if-sync_action-is-not-reshape.patch
+Patch4:      mdadm-3.3.4-imsm-use-timeout-when-waiting-for-reshape-progress.patch
+Patch5:      mdadm-3.3.4-imsm-don-t-update-migration-record-when-reshape-is-i.patch
+Patch6:      mdadm-3.3.4-Grow-Add-documentation-to-abort_reshape-for-suspend_.patch
+Patch7:      mdadm-3.3.4-super-intel-ensure-suspended-region-is-removed-when-.patch
+Patch8:      mdadm-3.3.4-Grow-close-fd-earlier-to-avoid-cannot-get-excl-acces.patch
+Patch9:      mdadm-3.3.4-Introduce-stat2kname-and-fd2kname.patch
+Patch10:     mdadm-3.3.4-IMSM-retry-reading-sync_completed-during-reshape.patch
+Patch11:     mdadm-3.3.4-The-sys_name-array-in-the-mdinfo-structure-is-20-byt.patch
+Patch12:     mdadm-3.3.4-imsm-add-handling-of-sync_action-is-equal-to-idle.patch
+Patch13:     mdadm-3.3.4-imsm-properly-handle-values-of-sync_completed.patch
 Patch97:     mdadm-3.3.2-disable-ddf.patch
 Patch98:     mdadm-3.3.2-udev.patch
 Patch99:     mdadm-3.3-makefile.patch
@@ -32,6 +45,19 @@ file can be used to help with some common tasks.
 
 %prep
 %setup -q
+%patch1 -p1 -b .abort
+%patch2 -p1 -b .grow-close
+%patch3 -p1 -b .sync_action
+%patch4 -p1 -b .timeout
+%patch5 -p1 -b .bother
+%patch6 -p1 -b .doc
+%patch7 -p1 -b .suspended-region
+%patch8 -p1 -b .early
+%patch9 -p1 -b .stat2kname
+%patch10 -p1 -b .retry
+%patch11 -p1 -b .sysname
+%patch12 -p1 -b .syncidle
+%patch13 -p1 -b .synccomplete
 %patch97 -p1 -b .ddf
 %patch98 -p1 -b .udev
 %patch99 -p1 -b .static
@@ -82,6 +108,35 @@ fi
 %attr(0700,root,root) %dir /var/run/mdadm
 
 %changelog
+* Tue Jun 21 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.5
+- Fix problem with reshaping IMSM arrays, where a new reshape could be
+  launched before the first reshape had fully completed, leading to
+  unpected results.
+- Resolves bz1348544
+
+* Fri Jun 17 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.4
+- Fix problem with mdadm large device names overflowing an internal buffer,
+  potentially leading to segfaults.
+- Resolves bz1347808
+
+* Tue May 24 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.3
+- Retry reading sync_completed state to avoid a reshape not continuing after
+  restarting a reshape
+  This is an additional patch to resolve this bug.
+- Resolves bz1331331
+
+* Wed May 11 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.2
+- Fix problem with mdadm crashing during multi-volume reshape with NVMe drives
+- Resolves bz1334956
+
+* Tue May 10 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.1
+- Bump revision to be able to build
+- Resolves bz1331331
+
+* Thu Apr 28 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.1
+- Fix a number of issues with interrupting reshapes of IMSM RAID arrays
+- Resolves bz1331331
+
 * Wed Dec 9 2015 Xiao Ni <xni@redhat.com> - 3.3.4-1
 - Update to mdadm-3.3.4
 - Resolves bz1248989
