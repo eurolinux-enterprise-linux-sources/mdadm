@@ -5,7 +5,7 @@
 .\"   the Free Software Foundation; either version 2 of the License, or
 .\"   (at your option) any later version.
 .\" See file COPYING in distribution for details.
-.TH MDADM 8 "" v3.3.2
+.TH MDADM 8 "" v3.3.4
 .SH NAME
 mdadm \- manage MD devices
 .I aka
@@ -214,7 +214,7 @@ to detect and assemble arrays \(em possibly in an
 
 .P
 If a device is given before any options, or if the first option is
-and of
+one of
 .BR \-\-add ,
 .BR \-\-re\-add ,
 .BR \-\-add\-spare ,
@@ -392,6 +392,13 @@ When using Auto-Assemble, only arrays tagged for the given homehost
 will be allowed to use 'local' names (i.e. not ending in '_' followed
 by a digit string).  See below under
 .BR "Auto Assembly" .
+
+The special name "\fBany\fP" can be used as a wild card.  If an array
+is created with
+.B --homehost=any
+then the name "\fBany\fP" will be stored in the array and it can be
+assembled in the same way on any host.  If an array is assembled with
+this option, then the homehost recorded on the array will be ignored.
 
 .TP
 .B \-\-prefer=
@@ -2196,11 +2203,11 @@ option.  Currently only
 .B name
 is supported.
 
-The 
+The
 .B name
 option updates the subarray name in the metadata, it may not affect the
 device node name or the device node symlink until the subarray is
-re\-assembled.  If updating 
+re\-assembled.  If updating
 .B name
 would change the UUID of an active subarray this operation is blocked,
 and the command will end in an error.

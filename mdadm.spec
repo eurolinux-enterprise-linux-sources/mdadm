@@ -1,20 +1,13 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
-Version:     3.3.2
-Release:     5%{?dist}
+Version:     3.3.4
+Release:     1%{?dist}
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
 Source3:     mdadm.rules
 Source4:     mdadm-raid-check-sysconfig
 Source5:     mdadm-cron
-Patch1:      mdadm-3.3.2-imsm-support-for-OROMs-shared-by-multiple-HBAs.patch
-Patch2:      mdadm-3.3.2--imsm-support-for-second-and-combined-AHCI-controller.patch
-Patch3:      mdadm-3.3.2-imsm-use-efivarfs-interface-for-reading-UEFI-variabl.patch
-Patch4:      mdadm-3.3.2-imsm-add-support-for-NVMe-devices.patch
-Patch5:      mdadm-3.3.2-imsm-detail-platform-improvements.patch
-Patch6:      mdadm-3.3.2-imsm-simplified-multiple-OROMs-support.patch
-Patch7:      mdadm-3.3.2-IMSM-Count-arrays-per-orom.patch
 Patch97:     mdadm-3.3.2-disable-ddf.patch
 Patch98:     mdadm-3.3.2-udev.patch
 Patch99:     mdadm-3.3-makefile.patch
@@ -39,13 +32,6 @@ file can be used to help with some common tasks.
 
 %prep
 %setup -q
-%patch1 -p1 -b .hba
-%patch2 -p1 -b .combine
-%patch3 -p1 -b .efivar
-%patch4 -p1 -b .nvme
-%patch5 -p1 -b .detail
-%patch6 -p1 -b .simple
-%patch7 -p1 -b .count
 %patch97 -p1 -b .ddf
 %patch98 -p1 -b .udev
 %patch99 -p1 -b .static
@@ -96,6 +82,10 @@ fi
 %attr(0700,root,root) %dir /var/run/mdadm
 
 %changelog
+* Wed Dec 9 2015 Xiao Ni <xni@redhat.com> - 3.3.4-1
+- Update to mdadm-3.3.4
+- Resolves bz1248989
+
 * Tue May 19 2015 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.2-5
 - Fix race condition when assembling IMSM volumes with mdadm -As
 - Resolves bz1146994
