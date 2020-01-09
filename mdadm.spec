@@ -1,7 +1,7 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
 Version:     3.3.4
-Release:     1%{?dist}.5
+Release:     8%{?dist}
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
@@ -21,6 +21,10 @@ Patch10:     mdadm-3.3.4-IMSM-retry-reading-sync_completed-during-reshape.patch
 Patch11:     mdadm-3.3.4-The-sys_name-array-in-the-mdinfo-structure-is-20-byt.patch
 Patch12:     mdadm-3.3.4-imsm-add-handling-of-sync_action-is-equal-to-idle.patch
 Patch13:     mdadm-3.3.4-imsm-properly-handle-values-of-sync_completed.patch
+Patch14:     mdadm-3.3.4-Incremental-don-t-try-to-load_container-for-a-subarr.patch
+Patch15:     mdadm-3.3.4-Allow-level-migration-only-for-single-array-containe.patch
+Patch16:     mdadm-3.3.4-imsm-set-generation-number-when-reading-superblock.patch
+
 Patch97:     mdadm-3.3.2-disable-ddf.patch
 Patch98:     mdadm-3.3.2-udev.patch
 Patch99:     mdadm-3.3-makefile.patch
@@ -58,6 +62,10 @@ file can be used to help with some common tasks.
 %patch11 -p1 -b .sysname
 %patch12 -p1 -b .syncidle
 %patch13 -p1 -b .synccomplete
+%patch14 -p1 -b .load_container
+%patch15 -p1 -b .only
+%patch16 -p1 -b .generation
+
 %patch97 -p1 -b .ddf
 %patch98 -p1 -b .udev
 %patch99 -p1 -b .static
@@ -108,34 +116,40 @@ fi
 %attr(0700,root,root) %dir /var/run/mdadm
 
 %changelog
-* Tue Jun 21 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.5
+* Thu Jan 26 2017 Xiao Ni <xni@redhat.com> - 3.3.4-8
+- Cannot assemble IMSM array with domain policy in mdadm.conf and
+  RAID level migration in container with 2 arrays breaks both arrays 
+- Resolves bz1413937 and bz1413615
+
+* Tue Aug 9 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-7
+- Fix problem with mdadm trying to load container for a subarray
+- Resolves bz1348925
+
+* Mon Jun 20 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-6
 - Fix problem with reshaping IMSM arrays, where a new reshape could be
   launched before the first reshape had fully completed, leading to
   unpected results.
-- Resolves bz1348544
+- Resolves bz1340768
 
-* Fri Jun 17 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.4
-- Fix problem with mdadm large device names overflowing an internal buffer,
-  potentially leading to segfaults.
-- Resolves bz1347808
-
-* Tue May 24 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.3
+* Fri Jun 17 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-5
 - Retry reading sync_completed state to avoid a reshape not continuing after
   restarting a reshape
-  This is an additional patch to resolve this bug.
-- Resolves bz1331331
+  This is an additional patch to resolve this bug, which was identified
+  during the z-stream backport of this bug.
+- Resolves bz1322317
 
-* Wed May 11 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.2
+* Fri Jun 17 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-4
+- Fix problem with mdadm large device names overflowing an internal buffer,
+  potentially leading to segfaults.
+- Resolves bz1343809
+
+* Tue May 10 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-3
 - Fix problem with mdadm crashing during multi-volume reshape with NVMe drives
-- Resolves bz1334956
+- Resolves bz1322317
 
-* Tue May 10 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.el6_8.1
-- Bump revision to be able to build
-- Resolves bz1331331
-
-* Thu Apr 28 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-1.1
+* Wed Apr 27 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.3.4-2
 - Fix a number of issues with interrupting reshapes of IMSM RAID arrays
-- Resolves bz1331331
+- Resolves bz1320211
 
 * Wed Dec 9 2015 Xiao Ni <xni@redhat.com> - 3.3.4-1
 - Update to mdadm-3.3.4
