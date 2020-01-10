@@ -1,0 +1,11 @@
+--- mdadm-4.1_rc1/Makefile~	2018-06-22 10:03:20.624635889 +0800
++++ mdadm-4.1_rc1/Makefile	2018-06-22 10:03:40.949636477 +0800
+@@ -259,7 +259,7 @@
+ 
+ install-udev: udev-md-raid-arrays.rules udev-md-raid-assembly.rules udev-md-raid-creating.rules \
+ 		udev-md-clustered-confirm-device.rules 
+-	@for file in 01-md-raid-creating.rules 63-md-raid-arrays.rules 64-md-raid-assembly.rules \
++	@for file in 01-md-raid-creating.rules 63-md-raid-arrays.rules \
+ 		69-md-clustered-confirm-device.rules ; \
+ 	do sed -e 's,BINDIR,$(BINDIR),g' udev-$${file#??-} > .install.tmp.1 && \
+ 	   $(ECHO) $(INSTALL) -D -m 644 udev-$${file#??-} $(DESTDIR)$(UDEVDIR)/rules.d/$$file ; \
