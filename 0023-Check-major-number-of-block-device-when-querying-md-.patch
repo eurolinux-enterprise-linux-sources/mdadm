@@ -1,0 +1,48 @@
+From 27e39ad31cbdfe516f9f390cc860a4f681750ef0 Mon Sep 17 00:00:00 2001
+From: Xiao Ni <xni@redhat.com>
+Date: Wed, 30 May 2018 13:49:41 +0800
+Subject: [RHEL7.5 PATCH 23/26] Check major number of block device when
+ querying md device
+
+It give error message when query a non md device.
+mdadm /dev/null
+/dev/null: is an md device, but gives "Inappropriate ioctl for device" when queried
+
+It's introduced by commit 5cb8599 and 8d0cd09
+At first it checks whether a block is md device by function md_get_version.
+In this function it does mainly two jobs:
+1. send request by ioctl. (now it can be replace by argument ioctlerr)
+2. check the block device major number which we don't do this.
+
+We add the second judgement in this patch.
+
+Fixes: 5cb8599 and 8d0cd09
+Reported-by: Karsten Weiss <karsten.weiss@atos.net>
+Signed-off-by: Xiao Ni <xni@redhat.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ Query.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/Query.c b/Query.c
+index 2bd0e2a..23fbf8a 100644
+--- a/Query.c
++++ b/Query.c
+@@ -85,12 +85,11 @@ int Query(char *dev)
+ 
+ 	if (ioctlerr == ENODEV)
+ 		printf("%s: is an md device which is not active\n", dev);
++	else if (ioctlerr && major(stb.st_rdev) != MD_MAJOR)
++		printf("%s: is not an md array\n", dev);
+ 	else if (ioctlerr)
+ 		printf("%s: is an md device, but gives \"%s\" when queried\n",
+ 		       dev, strerror(ioctlerr));
+-	else if (staterr)
+-		printf("%s: is not a valid md device, returning %s\n",
+-		       dev, strerror(ioctlerr));
+ 	else {
+ 		printf("%s: %s %s %d devices, %d spare%s. Use mdadm --detail for more detail.\n",
+ 		       dev, human_size_brief(larray_size,IEC),
+-- 
+2.7.4
+

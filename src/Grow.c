@@ -242,7 +242,6 @@ int Grow_Add_device(char *devname, int fd, char *newdev)
 		if (st->ss->load_super(st, fd2, NULL)) {
 			pr_err("cannot find super block on %s\n", dv);
 			close(fd);
-			close(fd2);
 			return 1;
 		}
 		info.array.raid_disks = nd+1;
@@ -754,8 +753,7 @@ static int check_idle(struct supertype *st)
 	for (e = ent ; e; e = e->next) {
 		if (!is_container_member(e, container))
 			continue;
-		/* frozen array is not idle*/
-		if (e->percent >= 0 || e->metadata_version[9] == '-') {
+		if (e->percent >= 0) {
 			is_idle = 0;
 			break;
 		}
@@ -1823,7 +1821,7 @@ int Grow_reshape(char *devname, int fd,
 	}
 
 	if (array.level > 1 && s->size > 1 &&
-	    (unsigned long long) (array.chunk_size / 1024) > s->size) {
+	    (array.chunk_size / 1024) > (int)s->size) {
 		pr_err("component size must be larger than chunk size.\n");
 		return 1;
 	}

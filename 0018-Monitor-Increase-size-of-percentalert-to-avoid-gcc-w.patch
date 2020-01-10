@@ -1,0 +1,31 @@
+From 975898395951835f5a8051441af21cc995921f8c Mon Sep 17 00:00:00 2001
+From: Jes Sorensen <jsorensen@fb.com>
+Date: Thu, 31 May 2018 11:45:21 -0400
+Subject: [RHEL7.5 PATCH 18/26] Monitor: Increase size of percentalert to avoid
+ gcc warning
+
+gcc-8.1 complains about truncated string operations. While we know
+percent will never grow larger than 100, it doesn't cost us anything
+to increase the size of 'percentalert' on the stack like this.
+
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ Monitor.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Monitor.c b/Monitor.c
+index c7c05d2..036103f 100644
+--- a/Monitor.c
++++ b/Monitor.c
+@@ -557,7 +557,7 @@ static int check_array(struct state *st, struct mdstat_ent *mdstat,
+ 		alert("RebuildStarted", dev, NULL, ainfo);
+ 	if (st->percent >= 0 && mse->percent >= 0 &&
+ 	    (mse->percent / increments) > (st->percent / increments)) {
+-		char percentalert[15];
++		char percentalert[18];
+ 		/*
+ 		 * "RebuildNN" (10 chars) or "RebuildStarted" (15 chars)
+ 		 */
+-- 
+2.7.4
+

@@ -1,0 +1,57 @@
+From 54865c30d5b94920318950e29a4f6c1ce075cae8 Mon Sep 17 00:00:00 2001
+From: Roman Sobanski <roman.sobanski@intel.com>
+Date: Wed, 25 Apr 2018 11:25:06 +0200
+Subject: [RHEL7.5 PATCH 08/26] Prevent create IMSM volume with size smaller
+ than 1M or chunk
+
+Block creation of the imsm volume when given size is smaller than 1M and
+print appropriate message.
+
+Commit b53bfba6119d3f6f56eb9e10e5a59da6901af159
+(imsm: use rounded size for metadata initialization) introduces issue with
+rounding volume sizes smaller than 1M to 0. There is an inconsistency when
+size smaller than 1M was given depends of what we give as target device:
+1) When block devices was given created volume has maximum available size.
+2) When container symlink was given created volume has size 0. Additionally
+it causes below call trace:
+
+[69587.891556] WARNING: CPU: 28 PID: 22485 at ../drivers/md/md.c:7582 md_seq_show+0x764/0x770 [md_mod]
+[69588.066405] Call Trace:
+[69588.066409]  seq_read+0x336/0x430
+[69588.066411]  proc_reg_read+0x40/0x70
+[69588.066412]  __vfs_read+0x26/0x140
+[69588.066414]  vfs_read+0x89/0x130
+[69588.066415]  SyS_read+0x42/0x90
+[69588.066417]  do_syscall_64+0x74/0x140
+[69588.066419]  entry_SYSCALL_64_after_hwframe+0x3d/0xa2
+
+Signed-off-by: Roman Sobanski <roman.sobanski@intel.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ super-intel.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/super-intel.c b/super-intel.c
+index c55c85f..520abf5 100644
+--- a/super-intel.c
++++ b/super-intel.c
+@@ -7358,6 +7358,16 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
+ 							verbose);
+ 	}
+ 
++	if (size && ((size < 1024) || (*chunk != UnSet &&
++	    size < (unsigned long long) *chunk))) {
++		pr_err("Given size must be greater than 1M and chunk size.\n");
++		/* Depends on algorithm in Create.c :
++		 * if container was given (dev == NULL) return -1,
++		 * if block device was given ( dev != NULL) return 0.
++		 */
++		return dev ? -1 : 0;
++	}
++
+ 	if (!dev) {
+ 		if (st->sb) {
+ 			struct intel_super *super = st->sb;
+-- 
+2.7.4
+

@@ -281,8 +281,6 @@ static int select_devices(struct mddev_dev *devlist,
 				st->ss->free_super(st);
 			dev_policy_free(pol);
 			domain_free(domains);
-			if (tst)
-				tst->ss->free_super(tst);
 			return -1;
 		}
 
@@ -594,9 +592,6 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (strcmp(c->update, "ppl") == 0 &&
 			    ident->bitmap_fd >= 0) {
 				pr_err("PPL is not compatible with bitmap\n");
-				close(mdfd);
-				free(devices);
-				free(devmap);
 				return -1;
 			}
 
@@ -784,8 +779,6 @@ static int load_devices(struct devs *devices, char *devmap,
 			if (best[i] == -1 || (devices[best[i]].i.events
 					      < devices[devcnt].i.events))
 				best[i] = devcnt;
-			else if (st->ss == &super_imsm)
-				best[i+1] = devcnt;
 		}
 		devcnt++;
 	}
@@ -1351,6 +1344,9 @@ int Assemble(struct supertype *st, char *mddev,
 	char chosen_name[1024];
 	struct map_ent *map = NULL;
 	struct map_ent *mp;
+	int locked = 0;
+	struct mdp_superblock_1 *sb;
+	bitmap_super_t *bms;
 
 	/*
 	 * If any subdevs are listed, then any that don't
@@ -1381,6 +1377,12 @@ try_again:
 	 * set of devices failed.  Those are now marked as ->used==2 and
 	 * we ignore them and try again
 	 */
+	if (locked)
+		/*
+		 * if come back try_again is called, then need to unlock first,
+		 * and lock again since the metadate is re-read.
+		 */
+		cluster_release_dlmlock();
 	if (!st && ident->st)
 		st = ident->st;
 	if (c->verbose>0)
@@ -1397,6 +1399,14 @@ try_again:
 
 	if (!st || !st->sb || !content)
 		return 2;
+
+	sb = st->sb;
+	bms = (bitmap_super_t*)(((char*)sb) + 4096);
+	if (sb && bms->version == BITMAP_MAJOR_CLUSTERED) {
+		locked = cluster_get_dlmlock();
+		if (locked != 1)
+			return 1;
+	}
 
 	/* We have a full set of devices - we now need to find the
 	 * array device.
@@ -1528,6 +1538,8 @@ try_again:
 		err = assemble_container_content(st, mdfd, content, c,
 						 chosen_name, NULL);
 		close(mdfd);
+		if (locked == 1)
+			cluster_release_dlmlock();
 		return err;
 	}
 
@@ -1539,11 +1551,6 @@ try_again:
 			      &most_recent, &bestcnt, &best, inargv);
 	if (devcnt < 0) {
 		mdfd = -3;
-		/*
-		 * devices is already freed in load_devices, so set devices
-		 * to NULL to avoid double free devices.
-		 */
-		devices = NULL;
 		goto out;
 	}
 
@@ -1842,8 +1849,8 @@ try_again:
 	if (rv == 1 && !pre_exist)
 		ioctl(mdfd, STOP_ARRAY, NULL);
 	free(devices);
-out:
 	map_unlock(&map);
+out:
 	if (rv == 0) {
 		wait_for(chosen_name, mdfd);
 		close(mdfd);
@@ -1877,6 +1884,8 @@ out:
 		close(mdfd);
 
 	/* '2' means 'OK, but not started yet' */
+	if (locked == 1)
+		cluster_release_dlmlock();
 	if (rv == -1) {
 		free(devices);
 		return 1;

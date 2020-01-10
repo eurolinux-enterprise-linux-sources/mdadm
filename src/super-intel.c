@@ -88,8 +88,8 @@
 #define MPB_ATTRIB_IGNORED		(MPB_ATTRIB_NEVER_USE)
 
 #define MPB_SECTOR_CNT 2210
-#define IMSM_RESERVED_SECTORS 8192
-#define NUM_BLOCKS_DIRTY_STRIPE_REGION 2048
+#define IMSM_RESERVED_SECTORS 4096
+#define NUM_BLOCKS_DIRTY_STRIPE_REGION 2056
 #define SECT_PER_MB_SHIFT 11
 #define MAX_SECTOR_SIZE 4096
 #define MULTIPLE_PPL_AREA_SIZE_IMSM (1024 * 1024) /* Size of the whole
@@ -1201,13 +1201,6 @@ static unsigned long long num_data_stripes(struct imsm_map *map)
 	return join_u32(map->num_data_stripes_lo, map->num_data_stripes_hi);
 }
 
-static unsigned long long imsm_dev_size(struct imsm_dev *dev)
-{
-	if (dev == NULL)
-		return 0;
-	return join_u32(dev->size_low, dev->size_high);
-}
-
 static void set_total_blocks(struct imsm_disk *disk, unsigned long long n)
 {
 	split_ull(n, &disk->total_blocks_lo, &disk->total_blocks_hi);
@@ -1226,25 +1219,6 @@ static void set_blocks_per_member(struct imsm_map *map, unsigned long long n)
 static void set_num_data_stripes(struct imsm_map *map, unsigned long long n)
 {
 	split_ull(n, &map->num_data_stripes_lo, &map->num_data_stripes_hi);
-}
-
-static void set_imsm_dev_size(struct imsm_dev *dev, unsigned long long n)
-{
-	split_ull(n, &dev->size_low, &dev->size_high);
-}
-
-static unsigned long long per_dev_array_size(struct imsm_map *map)
-{
-	unsigned long long array_size = 0;
-
-	if (map == NULL)
-		return array_size;
-
-	array_size = num_data_stripes(map) * map->blocks_per_strip;
-	if (get_imsm_raid_level(map) == 1 || get_imsm_raid_level(map) == 10)
-		array_size *= 2;
-
-	return array_size;
 }
 
 static struct extent *get_extents(struct intel_super *super, struct dl *dl)
@@ -1273,7 +1247,7 @@ static struct extent *get_extents(struct intel_super *super, struct dl *dl)
 
 		if (get_imsm_disk_slot(map, dl->index) >= 0) {
 			e->start = pba_of_lba0(map);
-			e->size = per_dev_array_size(map);
+			e->size = blocks_per_member(map);
 			e++;
 		}
 	}
@@ -1529,7 +1503,9 @@ static void print_imsm_dev(struct intel_super *super,
 	} else
 		printf("      This Slot : ?\n");
 	printf("    Sector Size : %u\n", super->sector_size);
-	sz = imsm_dev_size(dev);
+	sz = __le32_to_cpu(dev->size_high);
+	sz <<= 32;
+	sz += __le32_to_cpu(dev->size_low);
 	printf("     Array Size : %llu%s\n",
 		   (unsigned long long)sz * 512 / super->sector_size,
 	       human_size(sz * 512));
@@ -1658,7 +1634,8 @@ void convert_to_4k(struct intel_super *super)
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 		struct imsm_map *map = get_imsm_map(dev, MAP_0);
 		/* dev */
-		set_imsm_dev_size(dev, imsm_dev_size(dev)/IMSM_4K_DIV);
+		split_ull((join_u32(dev->size_low, dev->size_high)/IMSM_4K_DIV),
+				 &dev->size_low, &dev->size_high);
 		dev->vol.curr_migr_unit /= IMSM_4K_DIV;
 
 		/* map0 */
@@ -1785,7 +1762,8 @@ void convert_from_4k(struct intel_super *super)
 		struct imsm_dev *dev = __get_imsm_dev(mpb, i);
 		struct imsm_map *map = get_imsm_map(dev, MAP_0);
 		/* dev */
-		set_imsm_dev_size(dev, imsm_dev_size(dev)*IMSM_4K_DIV);
+		split_ull((join_u32(dev->size_low, dev->size_high)*IMSM_4K_DIV),
+				 &dev->size_low, &dev->size_high);
 		dev->vol.curr_migr_unit *= IMSM_4K_DIV;
 
 		/* map0 */
@@ -1928,6 +1906,7 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
 	strncpy(str, (char *)mpb->sig, MPB_SIG_LEN);
 	str[MPB_SIG_LEN-1] = '\0';
 	printf("          Magic : %s\n", str);
+	snprintf(str, strlen(MPB_VERSION_RAID0), "%s", get_imsm_version(mpb));
 	printf("        Version : %s\n", get_imsm_version(mpb));
 	printf("    Orig Family : %08x\n", __le32_to_cpu(mpb->orig_family_num));
 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
@@ -2780,11 +2759,13 @@ static __u32 num_stripes_per_unit_rebuild(struct imsm_dev *dev)
 		return num_stripes_per_unit_resync(dev);
 }
 
-static __u8 imsm_num_data_members(struct imsm_map *map)
+static __u8 imsm_num_data_members(struct imsm_dev *dev, int second_map)
 {
 	/* named 'imsm_' because raid0, raid1 and raid10
 	 * counter-intuitively have the same number of data disks
 	 */
+	struct imsm_map *map = get_imsm_map(dev, second_map);
+
 	switch (get_imsm_raid_level(map)) {
 	case 0:
 		return map->num_members;
@@ -2798,36 +2779,6 @@ static __u8 imsm_num_data_members(struct imsm_map *map)
 		dprintf("unsupported raid level\n");
 		return 0;
 	}
-}
-
-static unsigned long long calc_component_size(struct imsm_map *map,
-					      struct imsm_dev *dev)
-{
-	unsigned long long component_size;
-	unsigned long long dev_size = imsm_dev_size(dev);
-	unsigned long long calc_dev_size = 0;
-	unsigned int member_disks = imsm_num_data_members(map);
-
-	if (member_disks == 0)
-		return 0;
-
-	component_size = per_dev_array_size(map);
-	calc_dev_size = component_size * member_disks;
-
-	/* Component size is rounded to 1MB so difference between size from
-	 * metadata and size calculated from num_data_stripes equals up to
-	 * 2048 blocks per each device. If the difference is higher it means
-	 * that array size was expanded and num_data_stripes was not updated.
-	 */
-	if ((unsigned int)abs(calc_dev_size - dev_size) >
-	    (1 << SECT_PER_MB_SHIFT) * member_disks) {
-		component_size = dev_size / member_disks;
-		dprintf("Invalid num_data_stripes in metadata; expected=%llu, found=%llu\n",
-			component_size / map->blocks_per_strip,
-			num_data_stripes(map));
-	}
-
-	return component_size;
 }
 
 static __u32 parity_segment_depth(struct imsm_dev *dev)
@@ -2903,7 +2854,7 @@ static __u64 blocks_per_migr_unit(struct intel_super *super,
 		 */
 		stripes_per_unit = num_stripes_per_unit_resync(dev);
 		migr_chunk = migr_strip_blocks_resync(dev);
-		disks = imsm_num_data_members(map);
+		disks = imsm_num_data_members(dev, MAP_0);
 		blocks_per_unit = stripes_per_unit * migr_chunk * disks;
 		stripe = __le16_to_cpu(map->blocks_per_strip) * disks;
 		segment = blocks_per_unit / stripe;
@@ -3227,27 +3178,27 @@ int imsm_reshape_blocks_arrays_changes(struct intel_super *super)
 	}
 	return rv;
 }
-static unsigned long long imsm_component_size_alignment_check(int level,
+static unsigned long long imsm_component_size_aligment_check(int level,
 					      int chunk_size,
 					      unsigned int sector_size,
 					      unsigned long long component_size)
 {
-	unsigned int component_size_alignment;
+	unsigned int component_size_alligment;
 
-	/* check component size alignment
+	/* check component size aligment
 	*/
-	component_size_alignment = component_size % (chunk_size/sector_size);
+	component_size_alligment = component_size % (chunk_size/sector_size);
 
-	dprintf("(Level: %i, chunk_size = %i, component_size = %llu), component_size_alignment = %u\n",
+	dprintf("(Level: %i, chunk_size = %i, component_size = %llu), component_size_alligment = %u\n",
 		level, chunk_size, component_size,
-		component_size_alignment);
+		component_size_alligment);
 
-	if (component_size_alignment && (level != 1) && (level != UnSet)) {
-		dprintf("imsm: reported component size aligned from %llu ",
+	if (component_size_alligment && (level != 1) && (level != UnSet)) {
+		dprintf("imsm: reported component size alligned from %llu ",
 			component_size);
-		component_size -= component_size_alignment;
+		component_size -= component_size_alligment;
 		dprintf_cont("to %llu (%i).\n",
-			component_size, component_size_alignment);
+			component_size, component_size_alligment);
 	}
 
 	return component_size;
@@ -3289,7 +3240,9 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	info->array.chunk_size	  =
 		__le16_to_cpu(map_to_analyse->blocks_per_strip) << 9;
 	info->array.state	  = !(dev->vol.dirty & RAIDVOL_DIRTY);
-	info->custom_array_size   = imsm_dev_size(dev);
+	info->custom_array_size   = __le32_to_cpu(dev->size_high);
+	info->custom_array_size   <<= 32;
+	info->custom_array_size   |= __le32_to_cpu(dev->size_low);
 	info->recovery_blocked = imsm_reshape_blocks_arrays_changes(st->sb);
 
 	if (is_gen_migration(dev)) {
@@ -3349,8 +3302,15 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 	}
 
 	info->data_offset	  = pba_of_lba0(map_to_analyse);
-	info->component_size = calc_component_size(map, dev);
-	info->component_size = imsm_component_size_alignment_check(
+
+	if (info->array.level == 5) {
+		info->component_size = num_data_stripes(map_to_analyse) *
+				       map_to_analyse->blocks_per_strip;
+	} else {
+		info->component_size = blocks_per_member(map_to_analyse);
+	}
+
+	info->component_size = imsm_component_size_aligment_check(
 							info->array.level,
 							info->array.chunk_size,
 							super->sector_size,
@@ -3415,9 +3375,9 @@ static void getinfo_super_imsm_volume(struct supertype *st, struct mdinfo *info,
 				(unsigned long long)blocks_per_unit,
 				info->reshape_progress);
 
-			used_disks = imsm_num_data_members(prev_map);
+			used_disks = imsm_num_data_members(dev, MAP_1);
 			if (used_disks > 0) {
-				array_blocks = per_dev_array_size(map) *
+				array_blocks = blocks_per_member(map) *
 					used_disks;
 				info->custom_array_size =
 					round_size_to_mb(array_blocks,
@@ -4523,11 +4483,6 @@ static int find_intel_hba_capability(int fd, struct intel_super *super, char *de
 	struct sys_dev *hba_name;
 	int rv = 0;
 
-	if (fd >= 0 && test_partition(fd)) {
-		pr_err("imsm: %s is a partition, cannot be used in IMSM\n",
-		       devname);
-		return 1;
-	}
 	if (fd < 0 || check_env("IMSM_NO_PLATFORM")) {
 		super->orom = NULL;
 		super->hba = NULL;
@@ -5290,22 +5245,10 @@ static int check_name(struct intel_super *super, char *name, int quiet)
 {
 	struct imsm_super *mpb = super->anchor;
 	char *reason = NULL;
-	char *start = name;
-	size_t len = strlen(name);
 	int i;
 
-	if (len > 0) {
-		while (isspace(start[len - 1]))
-			start[--len] = 0;
-		while (*start && isspace(*start))
-			++start, --len;
-		memmove(name, start, len + 1);
-	}
-
-	if (len > MAX_RAID_SERIAL_LEN)
+	if (strlen(name) > MAX_RAID_SERIAL_LEN)
 		reason = "must be 16 characters or less";
-	else if (len == 0)
-		reason = "must be a non-empty string";
 
 	for (i = 0; i < mpb->num_raid_devs; i++) {
 		struct imsm_dev *dev = get_imsm_dev(super, i);
@@ -5339,7 +5282,6 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	struct imsm_map *map;
 	int idx = mpb->num_raid_devs;
 	int i;
-	int namelen;
 	unsigned long long array_blocks;
 	size_t size_old, size_new;
 	unsigned long long num_data_stripes;
@@ -5419,12 +5361,7 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 		return 0;
 	dv = xmalloc(sizeof(*dv));
 	dev = xcalloc(1, sizeof(*dev) + sizeof(__u32) * (info->raid_disks - 1));
-	/*
-	 * Explicitly allow truncating to not confuse gcc's
-	 * -Werror=stringop-truncation
-	 */
-	namelen = min((int) strlen(name), MAX_RAID_SERIAL_LEN);
-	memcpy(dev->volume, name, namelen);
+	strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
 	array_blocks = calc_array_size(info->level, info->raid_disks,
 					       info->layout, info->chunk_size,
 					       s->size * BLOCKS_PER_KB);
@@ -5433,7 +5370,8 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	array_blocks = round_size_to_mb(array_blocks, data_disks);
 	size_per_member = array_blocks / data_disks;
 
-	set_imsm_dev_size(dev, array_blocks);
+	dev->size_low = __cpu_to_le32((__u32) array_blocks);
+	dev->size_high = __cpu_to_le32((__u32) (array_blocks >> 32));
 	dev->status = (DEV_READ_COALESCING | DEV_WRITE_COALESCING);
 	vol = &dev->vol;
 	vol->migr_state = 0;
@@ -5442,6 +5380,9 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	vol->curr_migr_unit = 0;
 	map = get_imsm_map(dev, MAP_0);
 	set_pba_of_lba0(map, super->create_offset);
+	set_blocks_per_member(map, info_to_blocks_per_member(info,
+							     size_per_member /
+							     BLOCKS_PER_KB));
 	map->blocks_per_strip = __cpu_to_le16(info_to_blocks_per_strip(info));
 	map->failed_disk_num = ~0;
 	if (info->level > 0)
@@ -5472,11 +5413,6 @@ static int init_super_imsm_volume(struct supertype *st, mdu_array_info_t *info,
 	num_data_stripes = size_per_member / info_to_blocks_per_strip(info);
 	num_data_stripes /= map->num_domains;
 	set_num_data_stripes(map, num_data_stripes);
-
-	size_per_member += NUM_BLOCKS_DIRTY_STRIPE_REGION;
-	set_blocks_per_member(map, info_to_blocks_per_member(info,
-							     size_per_member /
-							     BLOCKS_PER_KB));
 
 	map->num_members = info->raid_disks;
 	for (i = 0; i < map->num_members; i++) {
@@ -5632,11 +5568,6 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
 		pr_err("%s is not a member of the same container\n", devname);
 		return 1;
 	}
-
-	if (mpb->num_disks == 0)
-		if (!get_dev_sector_size(dl->fd, dl->devname,
-					 &super->sector_size))
-			return 1;
 
 	if (!drive_validate_sector_size(super, dl)) {
 		pr_err("Combining drives of different sector size in one volume is not allowed\n");
@@ -7116,7 +7047,7 @@ static int validate_geometry_imsm_volume(struct supertype *st, int level,
 	mpb = super->anchor;
 
 	if (!validate_geometry_imsm_orom(super, level, layout, raiddisks, chunk, size, verbose)) {
-		pr_err("RAID geometry validation failed. Cannot proceed with the action(s).\n");
+		pr_err("RAID gemetry validation failed. Cannot proceed with the action(s).\n");
 		return 0;
 	}
 	if (!dev) {
@@ -7385,16 +7316,6 @@ static int validate_geometry_imsm(struct supertype *st, int level, int layout,
 							verbose);
 	}
 
-	if (size && ((size < 1024) || (*chunk != UnSet &&
-	    size < (unsigned long long) *chunk))) {
-		pr_err("Given size must be greater than 1M and chunk size.\n");
-		/* Depends on algorithm in Create.c :
-		 * if container was given (dev == NULL) return -1,
-		 * if block device was given ( dev != NULL) return 0.
-		 */
-		return dev ? -1 : 0;
-	}
-
 	if (!dev) {
 		if (st->sb) {
 			struct intel_super *super = st->sb;
@@ -7609,12 +7530,11 @@ static int update_subarray_imsm(struct supertype *st, char *subarray,
 			append_metadata_update(st, u, sizeof(*u));
 		} else {
 			struct imsm_dev *dev;
-			int i, namelen;
+			int i;
 
 			dev = get_imsm_dev(super, vol);
-			memset(dev->volume, '\0', MAX_RAID_SERIAL_LEN);
-			namelen = min((int)strlen(name), MAX_RAID_SERIAL_LEN);
-			memcpy(dev->volume, name, namelen);
+			strncpy((char *) dev->volume, name, MAX_RAID_SERIAL_LEN);
+			dev->volume[MAX_RAID_SERIAL_LEN-1] = '\0';
 			for (i = 0; i < mpb->num_raid_devs; i++) {
 				dev = get_imsm_dev(super, i);
 				handle_missing(super, dev);
@@ -7813,7 +7733,7 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 						 level, /* RAID level */
 						 imsm_level_to_layout(level),
 						 map->num_members, /* raid disks */
-						 &chunk, imsm_dev_size(dev),
+						 &chunk, join_u32(dev->size_low, dev->size_high),
 						 1 /* verbose */)) {
 			pr_err("IMSM RAID geometry validation failed.  Array %s activation is blocked.\n",
 				dev->volume);
@@ -7898,14 +7818,18 @@ static struct mdinfo *container_content_imsm(struct supertype *st, char *subarra
 
 			info_d->events = __le32_to_cpu(mpb->generation_num);
 			info_d->data_offset = pba_of_lba0(map);
-			info_d->component_size = calc_component_size(map, dev);
 
 			if (map->raid_level == 5) {
+				info_d->component_size =
+						num_data_stripes(map) *
+						map->blocks_per_strip;
 				info_d->ppl_sector = this->ppl_sector;
 				info_d->ppl_size = this->ppl_size;
 				if (this->consistency_policy == CONSISTENCY_POLICY_PPL &&
 				    recovery_start == 0)
 					this->resync_start = 0;
+			} else {
+				info_d->component_size = blocks_per_member(map);
 			}
 
 			info_d->bb.supported = 1;
@@ -8120,7 +8044,7 @@ static int mark_failure(struct intel_super *super,
 	strcat(buf, ":0");
 	if ((len = strlen(buf)) >= MAX_RAID_SERIAL_LEN)
 		shift = len - MAX_RAID_SERIAL_LEN + 1;
-	memcpy(disk->serial, &buf[shift], len + 1 - shift);
+	strncpy((char *)disk->serial, &buf[shift], MAX_RAID_SERIAL_LEN);
 
 	disk->status |= FAILED_DISK;
 	set_imsm_ord_tbl_ent(map, slot, idx | IMSM_ORD_REBUILD);
@@ -8211,33 +8135,38 @@ static void handle_missing(struct intel_super *super, struct imsm_dev *dev)
 static unsigned long long imsm_set_array_size(struct imsm_dev *dev,
 					      long long new_size)
 {
+	int used_disks = imsm_num_data_members(dev, MAP_0);
 	unsigned long long array_blocks;
-	struct imsm_map *map = get_imsm_map(dev, MAP_0);
-	int used_disks = imsm_num_data_members(map);
+	struct imsm_map *map;
 
 	if (used_disks == 0) {
 		/* when problems occures
 		 * return current array_blocks value
 		 */
-		array_blocks = imsm_dev_size(dev);
+		array_blocks = __le32_to_cpu(dev->size_high);
+		array_blocks = array_blocks << 32;
+		array_blocks += __le32_to_cpu(dev->size_low);
 
 		return array_blocks;
 	}
 
 	/* set array size in metadata
 	 */
-	if (new_size <= 0)
+	if (new_size <= 0) {
 		/* OLCE size change is caused by added disks
 		 */
-		array_blocks = per_dev_array_size(map) * used_disks;
-	else
+		map = get_imsm_map(dev, MAP_0);
+		array_blocks = blocks_per_member(map) * used_disks;
+	} else {
 		/* Online Volume Size Change
 		 * Using  available free space
 		 */
 		array_blocks = new_size;
+	}
 
 	array_blocks = round_size_to_mb(array_blocks, used_disks);
-	set_imsm_dev_size(dev, array_blocks);
+	dev->size_low = __cpu_to_le32((__u32)array_blocks);
+	dev->size_high = __cpu_to_le32((__u32)(array_blocks >> 32));
 
 	return array_blocks;
 }
@@ -8343,10 +8272,10 @@ static int imsm_set_array_state(struct active_array *a, int consistent)
 				int used_disks;
 				struct mdinfo *mdi;
 
-				used_disks = imsm_num_data_members(map);
+				used_disks = imsm_num_data_members(dev, MAP_0);
 				if (used_disks > 0) {
 					array_blocks =
-						per_dev_array_size(map) *
+						blocks_per_member(map) *
 						used_disks;
 					array_blocks =
 						round_size_to_mb(array_blocks,
@@ -8788,11 +8717,11 @@ static struct dl *imsm_add_spare(struct intel_super *super, int slot,
 			pos = 0;
 			array_start = pba_of_lba0(map);
 			array_end = array_start +
-				    per_dev_array_size(map) - 1;
+				    blocks_per_member(map) - 1;
 
 			do {
 				/* check that we can start at pba_of_lba0 with
-				 * num_data_stripes*blocks_per_stripe of space
+				 * blocks_per_member of space
 				 */
 				if (array_start >= pos && array_end < ex[j].start) {
 					found = 1;
@@ -9201,10 +9130,8 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 			 */
 			if (u->new_chunksize > 0) {
 				unsigned long long num_data_stripes;
-				struct imsm_map *dest_map =
-					get_imsm_map(dev, MAP_0);
 				int used_disks =
-					imsm_num_data_members(dest_map);
+					imsm_num_data_members(dev, MAP_0);
 
 				if (used_disks == 0)
 					return ret_val;
@@ -9212,17 +9139,12 @@ static int apply_reshape_migration_update(struct imsm_update_reshape_migration *
 				map->blocks_per_strip =
 					__cpu_to_le16(u->new_chunksize * 2);
 				num_data_stripes =
-					imsm_dev_size(dev) / used_disks;
+					(join_u32(dev->size_low, dev->size_high)
+					/ used_disks);
 				num_data_stripes /= map->blocks_per_strip;
 				num_data_stripes /= map->num_domains;
 				set_num_data_stripes(map, num_data_stripes);
 			}
-
-			/* ensure blocks_per_member has valid value
-			 */
-			set_blocks_per_member(map,
-					      per_dev_array_size(map) +
-					      NUM_BLOCKS_DIRTY_STRIPE_REGION);
 
 			/* add disk
 			 */
@@ -9287,24 +9209,18 @@ static int apply_size_change_update(struct imsm_update_size_change *u,
 		if (id->index == (unsigned)u->subdev) {
 			struct imsm_dev *dev = get_imsm_dev(super, u->subdev);
 			struct imsm_map *map = get_imsm_map(dev, MAP_0);
-			int used_disks = imsm_num_data_members(map);
+			int used_disks = imsm_num_data_members(dev, MAP_0);
 			unsigned long long blocks_per_member;
 			unsigned long long num_data_stripes;
-			unsigned long long new_size_per_disk;
-
-			if (used_disks == 0)
-				return 0;
 
 			/* calculate new size
 			 */
-			new_size_per_disk = u->new_size / used_disks;
-			blocks_per_member = new_size_per_disk +
-					    NUM_BLOCKS_DIRTY_STRIPE_REGION;
-			num_data_stripes = new_size_per_disk /
+			blocks_per_member = u->new_size / used_disks;
+			num_data_stripes = blocks_per_member /
 					   map->blocks_per_strip;
 			num_data_stripes /= map->num_domains;
 			dprintf("(size: %llu, blocks per member: %llu, num_data_stipes: %llu)\n",
-				u->new_size, new_size_per_disk,
+				u->new_size, blocks_per_member,
 				num_data_stripes);
 			set_blocks_per_member(map, blocks_per_member);
 			set_num_data_stripes(map, num_data_stripes);
@@ -9560,6 +9476,12 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 	if (u->direction == R10_TO_R0) {
 		unsigned long long num_data_stripes;
 
+		map->num_domains = 1;
+		num_data_stripes = blocks_per_member(map);
+		num_data_stripes /= map->blocks_per_strip;
+		num_data_stripes /= map->num_domains;
+		set_num_data_stripes(map, num_data_stripes);
+
 		/* Number of failed disks must be half of initial disk number */
 		if (imsm_count_failed(super, dev, MAP_0) !=
 				(map->num_members / 2))
@@ -9585,15 +9507,10 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 		map->num_domains = 1;
 		map->raid_level = 0;
 		map->failed_disk_num = -1;
-		num_data_stripes = imsm_dev_size(dev) / 2;
-		num_data_stripes /= map->blocks_per_strip;
-		set_num_data_stripes(map, num_data_stripes);
 	}
 
 	if (u->direction == R0_TO_R10) {
 		void **space;
-		unsigned long long num_data_stripes;
-
 		/* update slots in current disk list */
 		for (dm = super->disks; dm; dm = dm->next) {
 			if (dm->index >= 0)
@@ -9631,11 +9548,6 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
 		map->map_state = IMSM_T_STATE_DEGRADED;
 		map->num_domains = 2;
 		map->raid_level = 1;
-		num_data_stripes = imsm_dev_size(dev) / 2;
-		num_data_stripes /= map->blocks_per_strip;
-		num_data_stripes /= map->num_domains;
-		set_num_data_stripes(map, num_data_stripes);
-
 		/* replace dev<->dev_new */
 		dv->dev = dev_new;
 	}
@@ -9781,7 +9693,7 @@ static void imsm_process_update(struct supertype *st,
 
 		new_map = get_imsm_map(&u->dev, MAP_0);
 		new_start = pba_of_lba0(new_map);
-		new_end = new_start + per_dev_array_size(new_map);
+		new_end = new_start + blocks_per_member(new_map);
 		inf = get_disk_info(u);
 
 		/* handle activate_spare versus create race:
@@ -9792,7 +9704,7 @@ static void imsm_process_update(struct supertype *st,
 			dev = get_imsm_dev(super, i);
 			map = get_imsm_map(dev, MAP_0);
 			start = pba_of_lba0(map);
-			end = start + per_dev_array_size(map);
+			end = start + blocks_per_member(map);
 			if ((new_start >= start && new_start <= end) ||
 			    (start >= new_start && start <= new_end))
 				/* overlap */;
@@ -9908,7 +9820,6 @@ static void imsm_process_update(struct supertype *st,
 		/* sanity check that we are not affecting the uuid of
 		 * an active array
 		 */
-		memset(name, 0, sizeof(name));
 		snprintf(name, MAX_RAID_SERIAL_LEN, "%s", (char *) u->name);
 		name[MAX_RAID_SERIAL_LEN] = '\0';
 		for (a = st->arrays; a; a = a->next)
@@ -9920,7 +9831,7 @@ static void imsm_process_update(struct supertype *st,
 			break;
 		}
 
-		memcpy(dev->volume, name, MAX_RAID_SERIAL_LEN);
+		snprintf((char *) dev->volume, MAX_RAID_SERIAL_LEN, "%s", name);
 		super->updates_pending++;
 		break;
 	}
@@ -10582,7 +10493,7 @@ static struct md_bb *imsm_get_badblocks(struct active_array *a, int slot)
 		return NULL;
 
 	get_volume_badblocks(super->bbm_log, ord_to_idx(ord), pba_of_lba0(map),
-			     per_dev_array_size(map), &super->bb);
+			     blocks_per_member(map), &super->bb);
 
 	return &super->bb;
 }
@@ -10677,7 +10588,7 @@ void init_migr_record_imsm(struct supertype *st, struct imsm_dev *dev,
 		max(map_dest->blocks_per_strip, map_src->blocks_per_strip);
 	migr_rec->dest_depth_per_unit *=
 		max(map_dest->blocks_per_strip, map_src->blocks_per_strip);
-	new_data_disks = imsm_num_data_members(map_dest);
+	new_data_disks = imsm_num_data_members(dev, MAP_0);
 	migr_rec->blocks_per_unit =
 		__cpu_to_le32(migr_rec->dest_depth_per_unit * new_data_disks);
 	migr_rec->dest_depth_per_unit =
@@ -10745,7 +10656,7 @@ int save_backup_imsm(struct supertype *st,
 	int dest_layout = 0;
 	int dest_chunk;
 	unsigned long long start;
-	int data_disks = imsm_num_data_members(map_dest);
+	int data_disks = imsm_num_data_members(dev, MAP_0);
 
 	targets = xmalloc(new_disks * sizeof(int));
 
@@ -11367,7 +11278,6 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	int imsm_layout = -1;
 	int data_disks;
 	struct imsm_dev *dev;
-	struct imsm_map *map;
 	struct intel_super *super;
 	unsigned long long current_size;
 	unsigned long long free_size;
@@ -11458,8 +11368,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 
 	super = st->sb;
 	dev = get_imsm_dev(super, super->current_vol);
-	map = get_imsm_map(dev, MAP_0);
-	data_disks = imsm_num_data_members(map);
+	data_disks = imsm_num_data_members(dev , MAP_0);
 	/* compute current size per disk member
 	 */
 	current_size = info.custom_array_size / data_disks;
@@ -11467,7 +11376,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 	if (geo->size > 0 && geo->size != MAX_SIZE) {
 		/* align component size
 		 */
-		geo->size = imsm_component_size_alignment_check(
+		geo->size = imsm_component_size_aligment_check(
 				    get_imsm_raid_level(dev->vol.map),
 				    chunk * 1024, super->sector_size,
 				    geo->size * 2);
@@ -11501,7 +11410,7 @@ enum imsm_reshape_type imsm_analyze_change(struct supertype *st,
 			max_size = free_size + current_size;
 			/* align component size
 			 */
-			max_size = imsm_component_size_alignment_check(
+			max_size = imsm_component_size_aligment_check(
 					get_imsm_raid_level(dev->vol.map),
 					chunk * 1024, super->sector_size,
 					max_size);
@@ -11627,6 +11536,9 @@ static int imsm_reshape_super(struct supertype *st, unsigned long long size,
 
 	dprintf("for level      : %i\n", geo.level);
 	dprintf("for raid_disks : %i\n", geo.raid_disks);
+
+	if (experimental() == 0)
+		return ret_val;
 
 	if (strcmp(st->container_devnm, st->devnm) == 0) {
 		/* On container level we can only increase number of devices. */
@@ -11925,7 +11837,7 @@ static int imsm_manage_reshape(
 	struct intel_dev *dv;
 	unsigned int sector_size = super->sector_size;
 	struct imsm_dev *dev = NULL;
-	struct imsm_map *map_src, *map_dest;
+	struct imsm_map *map_src;
 	int migr_vol_qan = 0;
 	int ndata, odata; /* [bytes] */
 	int chunk; /* [bytes] */
@@ -11963,13 +11875,12 @@ static int imsm_manage_reshape(
 		goto abort;
 	}
 
-	map_dest = get_imsm_map(dev, MAP_0);
 	map_src = get_imsm_map(dev, MAP_1);
 	if (map_src == NULL)
 		goto abort;
 
-	ndata = imsm_num_data_members(map_dest);
-	odata = imsm_num_data_members(map_src);
+	ndata = imsm_num_data_members(dev, MAP_0);
+	odata = imsm_num_data_members(dev, MAP_1);
 
 	chunk = __le16_to_cpu(map_src->blocks_per_strip) * 512;
 	old_data_stripe_length = odata * chunk;
@@ -12000,7 +11911,7 @@ static int imsm_manage_reshape(
 	buf_size = __le32_to_cpu(migr_rec->blocks_per_unit) * 512;
 	/* extend  buffer size for parity disk */
 	buf_size += __le32_to_cpu(migr_rec->dest_depth_per_unit) * 512;
-	/* add space for stripe alignment */
+	/* add space for stripe aligment */
 	buf_size += old_data_stripe_length;
 	if (posix_memalign((void **)&buf, MAX_SECTOR_SIZE, buf_size)) {
 		dprintf("imsm: Cannot allocate checkpoint buffer\n");

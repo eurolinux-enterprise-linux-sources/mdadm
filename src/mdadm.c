@@ -1885,8 +1885,6 @@ static int misc_scan(char devmode, struct context *c)
 			else
 				rv |= WaitClean(name, c->verbose);
 			put_md_name(name);
-			map_free(map);
-			map = NULL;
 		}
 	}
 	free_mdstat(ms);
@@ -1959,7 +1957,7 @@ static int misc_list(struct mddev_dev *devlist,
 					rv |= Kill(dv->devname, NULL, c->force, v, 0);
 					v = -1;
 				} while (rv == 0);
-				rv &= ~4;
+				rv &= ~2;
 			}
 			continue;
 		case 'Q':

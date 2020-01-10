@@ -1,0 +1,27 @@
+From 1cdc06dfda62775647b81e2753fc7908e1bbffc2 Mon Sep 17 00:00:00 2001
+From: Jes Sorensen <jsorensen@fb.com>
+Date: Tue, 29 May 2018 16:55:41 -0400
+Subject: [RHEL7.5 PATCH 13/26] super-intel: Get rid of unnused string
+
+No need to snprintf() into the string when we don't use it afterards
+
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ super-intel.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/super-intel.c b/super-intel.c
+index ec7683d..cc53f0f 100644
+--- a/super-intel.c
++++ b/super-intel.c
+@@ -1928,7 +1928,6 @@ static void examine_super_imsm(struct supertype *st, char *homehost)
+ 	strncpy(str, (char *)mpb->sig, MPB_SIG_LEN);
+ 	str[MPB_SIG_LEN-1] = '\0';
+ 	printf("          Magic : %s\n", str);
+-	snprintf(str, strlen(MPB_VERSION_RAID0), "%s", get_imsm_version(mpb));
+ 	printf("        Version : %s\n", get_imsm_version(mpb));
+ 	printf("    Orig Family : %08x\n", __le32_to_cpu(mpb->orig_family_num));
+ 	printf("         Family : %08x\n", __le32_to_cpu(mpb->family_num));
+-- 
+2.7.4
+

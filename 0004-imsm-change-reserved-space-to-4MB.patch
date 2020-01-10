@@ -1,0 +1,32 @@
+From 611d95290dd41d73bd8f9cc06f7ec293a40b819e Mon Sep 17 00:00:00 2001
+From: Mariusz Dabrowski <mariusz.dabrowski@intel.com>
+Date: Thu, 5 Apr 2018 13:38:35 +0200
+Subject: [RHEL7.5 PATCH 04/26] imsm: change reserved space to 4MB
+
+Due to compatibility to the  newest OROM, imsm reserved space has to be
+expanded to 4MB.
+
+Signed-off-by: Mariusz Dabrowski <mariusz.dabrowski@intel.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ super-intel.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/super-intel.c b/super-intel.c
+index fb1b693..52011e5 100644
+--- a/super-intel.c
++++ b/super-intel.c
+@@ -88,8 +88,8 @@
+ #define MPB_ATTRIB_IGNORED		(MPB_ATTRIB_NEVER_USE)
+ 
+ #define MPB_SECTOR_CNT 2210
+-#define IMSM_RESERVED_SECTORS 4096
+-#define NUM_BLOCKS_DIRTY_STRIPE_REGION 2056
++#define IMSM_RESERVED_SECTORS 8192
++#define NUM_BLOCKS_DIRTY_STRIPE_REGION 2048
+ #define SECT_PER_MB_SHIFT 11
+ #define MAX_SECTOR_SIZE 4096
+ #define MULTIPLE_PPL_AREA_SIZE_IMSM (1024 * 1024) /* Size of the whole
+-- 
+2.7.4
+

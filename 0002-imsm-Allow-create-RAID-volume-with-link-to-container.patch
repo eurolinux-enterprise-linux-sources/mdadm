@@ -1,0 +1,36 @@
+From b91ad097d6eecb85cf28915836370288709fbda8 Mon Sep 17 00:00:00 2001
+From: Michal Zylowski <michal.zylowski@intel.com>
+Date: Wed, 4 Apr 2018 14:20:17 +0200
+Subject: [RHEL7.5 PATCH 02/26] imsm: Allow create RAID volume with link to
+ container
+
+After 1db03765("Subdevs can't be all missing when create raid device")
+raid volume can't be created with link to container. This feature should
+not be blocked in Create function.  IMSM code forbids creation of
+container with missing disk, so case like all dev's missing is already
+handled.
+
+Permit IMSM volume creation when devices are given as link to container.
+
+Signed-off-by: Michal Zylowski <michal.zylowski@intel.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ Create.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Create.c b/Create.c
+index 50142d8..04b1dfc 100644
+--- a/Create.c
++++ b/Create.c
+@@ -475,7 +475,7 @@ int Create(struct supertype *st, char *mddev,
+ 			close(fd);
+ 		}
+ 	}
+-	if (missing_disks == dnum) {
++	if (missing_disks == dnum && !have_container) {
+ 		pr_err("Subdevs can't be all missing\n");
+ 		return 1;
+ 	}
+-- 
+2.7.4
+

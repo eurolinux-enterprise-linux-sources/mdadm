@@ -143,8 +143,6 @@ void map_unlock(struct map_ent **melp)
 		unlink(mapname[2]);
 		fclose(lf);
 	}
-	if (*melp)
-		map_free(*melp);
 	lf = NULL;
 }
 
@@ -268,7 +266,6 @@ void map_remove(struct map_ent **mapp, char *devnm)
 	map_delete(mapp, devnm);
 	map_write(*mapp);
 	map_free(*mapp);
-	*mapp = NULL;
 }
 
 struct map_ent *map_by_uuid(struct map_ent **map, int uuid[4])

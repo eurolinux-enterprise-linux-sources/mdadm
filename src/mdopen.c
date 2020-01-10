@@ -44,7 +44,7 @@ void make_parts(char *dev, int cnt)
 	int nlen = strlen(dev) + 20;
 	char *name;
 	int dig = isdigit(dev[strlen(dev)-1]);
-	char orig[1001];
+	char orig[1024];
 	char sym[1024];
 	int err;
 
@@ -58,10 +58,8 @@ void make_parts(char *dev, int cnt)
 		minor_num = minor(stb.st_rdev);
 		odig = -1;
 	} else if (S_ISLNK(stb.st_mode)) {
-		int len;
-
-		len = readlink(dev, orig, sizeof(orig));
-		if (len < 0 || len >= (int)sizeof(orig))
+		int len = readlink(dev, orig, sizeof(orig));
+		if (len < 0 || len > 1000)
 			return;
 		orig[len] = 0;
 		odig = isdigit(orig[len-1]);

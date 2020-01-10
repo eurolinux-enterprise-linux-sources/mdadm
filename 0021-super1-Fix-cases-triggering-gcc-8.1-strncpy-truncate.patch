@@ -1,0 +1,57 @@
+From 4d061b02b61d5e6d4186e0118166fdd40ea8b55f Mon Sep 17 00:00:00 2001
+From: Jes Sorensen <jsorensen@fb.com>
+Date: Thu, 31 May 2018 13:38:08 -0400
+Subject: [RHEL7.5 PATCH 21/26] super1: Fix cases triggering gcc-8.1 strncpy
+ truncate warning
+
+Find the string length, copy it, and zero out the rest, instead of
+relying on strncpy cleaning up for us.
+
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ super1.c | 22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/super1.c b/super1.c
+index 6774fbd..636a286 100644
+--- a/super1.c
++++ b/super1.c
+@@ -1434,8 +1434,15 @@ static int update_super1(struct supertype *st, struct mdinfo *info,
+ 			strcpy(sb->set_name, homehost);
+ 			strcat(sb->set_name, ":");
+ 			strcat(sb->set_name, info->name);
+-		} else
+-			strncpy(sb->set_name, info->name, sizeof(sb->set_name));
++		} else {
++			int namelen;
++
++			namelen = min((int)strlen(info->name),
++				      (int)sizeof(sb->set_name) - 1);
++			memcpy(sb->set_name, info->name, namelen);
++			memset(&sb->set_name[namelen], '\0',
++			       sizeof(sb->set_name) - namelen);
++		}
+ 	} else if (strcmp(update, "devicesize") == 0 &&
+ 		   __le64_to_cpu(sb->super_offset) <
+ 		   __le64_to_cpu(sb->data_offset)) {
+@@ -1592,8 +1599,15 @@ static int init_super1(struct supertype *st, mdu_array_info_t *info,
+ 		strcpy(sb->set_name, homehost);
+ 		strcat(sb->set_name, ":");
+ 		strcat(sb->set_name, name);
+-	} else
+-		strncpy(sb->set_name, name, sizeof(sb->set_name));
++	} else {
++		int namelen;
++
++		namelen = min((int)strlen(name),
++			      (int)sizeof(sb->set_name) - 1);
++		memcpy(sb->set_name, name, namelen);
++		memset(&sb->set_name[namelen], '\0',
++		       sizeof(sb->set_name) - namelen);
++	}
+ 
+ 	sb->ctime = __cpu_to_le64((unsigned long long)time(0));
+ 	sb->level = __cpu_to_le32(info->level);
+-- 
+2.7.4
+

@@ -1,0 +1,36 @@
+From 59632db96bdd09b44e9927f63a67cccbe8b15cdf Mon Sep 17 00:00:00 2001
+From: Michal Zylowski <michal.zylowski@intel.com>
+Date: Tue, 29 May 2018 15:47:09 +0200
+Subject: [RHEL7.5 PATCH 16/26] imsm: Do not block volume creation when
+ container has disks with mixed sector size
+
+Currently when created container keeps disks with mixed sector size (few
+4K disks and some 512 disks) there is no possibility to create volume from
+disks with one sector size.
+Allow volume creation when given disks are related with mixed container.
+
+Signed-off-by: Michal Zylowski <michal.zylowski@intel.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ super-intel.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/super-intel.c b/super-intel.c
+index aa93a9e..12f60f6 100644
+--- a/super-intel.c
++++ b/super-intel.c
+@@ -5616,6 +5616,11 @@ static int add_to_super_imsm_volume(struct supertype *st, mdu_disk_info_t *dk,
+ 		return 1;
+ 	}
+ 
++	if (mpb->num_disks == 0)
++		if (!get_dev_sector_size(dl->fd, dl->devname,
++					 &super->sector_size))
++			return 1;
++
+ 	if (!drive_validate_sector_size(super, dl)) {
+ 		pr_err("Combining drives of different sector size in one volume is not allowed\n");
+ 		return 1;
+-- 
+2.7.4
+

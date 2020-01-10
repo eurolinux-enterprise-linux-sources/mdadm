@@ -475,7 +475,7 @@ int Create(struct supertype *st, char *mddev,
 			close(fd);
 		}
 	}
-	if (missing_disks == dnum && !have_container) {
+	if (missing_disks == dnum) {
 		pr_err("Subdevs can't be all missing\n");
 		return 1;
 	}

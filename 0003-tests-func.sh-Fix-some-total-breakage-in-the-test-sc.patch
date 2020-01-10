@@ -1,0 +1,80 @@
+From 59416da78fc66084f721163b914913dc1da37b44 Mon Sep 17 00:00:00 2001
+From: Jes Sorensen <jsorensen@fb.com>
+Date: Wed, 11 Apr 2018 17:01:50 -0400
+Subject: [RHEL7.5 PATCH 03/26] tests/func.sh: Fix some total breakage in the
+ test scripts
+
+We will never mandate an obsolete file system such as ext[2-4] for
+running the test suite, nor should the test version of mdadm be
+installed on the system for the tests to be run.
+
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+Fixes: 20d10b4be873ba ("mdadm/test: Refactor and revamp 'test' script")
+---
+ test          |  2 +-
+ tests/func.sh | 22 +++-------------------
+ 2 files changed, 4 insertions(+), 20 deletions(-)
+
+diff --git a/test b/test
+index 111a2e7..711a3c7 100755
+--- a/test
++++ b/test
+@@ -5,7 +5,7 @@ mdadm=$PWD/mdadm
+ targetdir="/var/tmp"
+ logdir="$targetdir"
+ config=/tmp/mdadm.conf
+-testdir=
++testdir=$PWD/tests
+ devlist=
+ 
+ savelogs=0
+diff --git a/tests/func.sh b/tests/func.sh
+index a6995f1..9710a53 100644
+--- a/tests/func.sh
++++ b/tests/func.sh
+@@ -101,8 +101,8 @@ check_env() {
+ 		echo "test: testing can only be done as 'root'."
+ 		exit 1
+ 	}
+-	[ -x "raid6check" -a -x $mdadm ] || {
+-		echo "test: please run 'make everything' before perform testing."
++	[ \! -x $mdadm ] && {
++		echo "test: please run make everything before perform testing."
+ 		exit 1
+ 	}
+ 	cmds=(mdadm lsblk df udevadm losetup mkfs.ext3 fsck seq)
+@@ -113,23 +113,6 @@ check_env() {
+ 			exit 1
+ 		}
+ 	done
+-	mdadm_src_ver="$($mdadm -V 2>&1)"
+-	mdadm_sbin_ver="$($(which mdadm) -V 2>&1)"
+-	if [ "$mdadm_src_ver" != "$mdadm_sbin_ver" ]
+-	then
+-		# it's nessesary to 'make install' mdadm to /SBIN/DIR,
+-		# such as systemd/mdadm-grow-continue@.service, would
+-		# run as an instance by systemd when reshape happens,
+-		# thus ensure that the correct mdadm is in testing.
+-		echo "test: please run 'make install' before testing."
+-		exit 1
+-	fi
+-	if ! $(df -T . | grep -iq ext)
+-	then
+-		# 'external file' bitmap only supports with ext[2-4] file system
+-		echo "test: please run test suite with ext[2-4] file system."
+-		exit 1
+-	fi
+ 	if $(lsblk -a | grep -iq raid)
+ 	then
+ 		# donot run mdadm -Ss directly if there are RAIDs working.
+@@ -231,6 +214,7 @@ check() {
+ 		if [ $? -eq 0 ]; then
+ 			die "This command shouldn't run successfully"
+ 		fi
++	;;
+ 	spares )
+ 		spares=$(tr '] ' '\012\012' < /proc/mdstat | grep -c '(S)' || exit 0)
+ 		[ $spares -ne $2 ] &&
+-- 
+2.7.4
+

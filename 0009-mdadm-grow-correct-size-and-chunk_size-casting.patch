@@ -1,0 +1,32 @@
+From 5d518de84e7cd3382b4984cc1243ddb4102aa4f4 Mon Sep 17 00:00:00 2001
+From: Roman Sobanski <roman.sobanski@intel.com>
+Date: Fri, 27 Apr 2018 12:12:21 +0200
+Subject: [RHEL7.5 PATCH 09/26] mdadm/grow: correct size and chunk_size casting
+
+With commit 4b74a905a67e
+("mdadm/grow: Component size must be larger than chunk size") mdadm returns
+incorrect message if size given to grow was greater than 2 147 483 647 K.
+Cast chunk_size to "unsigned long long" instead of casting size to "int".
+
+Signed-off-by: Roman Sobanski <roman.sobanski@intel.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ Grow.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Grow.c b/Grow.c
+index 8722969..a4be7e7 100644
+--- a/Grow.c
++++ b/Grow.c
+@@ -1821,7 +1821,7 @@ int Grow_reshape(char *devname, int fd,
+ 	}
+ 
+ 	if (array.level > 1 && s->size > 1 &&
+-	    (array.chunk_size / 1024) > (int)s->size) {
++	    (unsigned long long) (array.chunk_size / 1024) > s->size) {
+ 		pr_err("component size must be larger than chunk size.\n");
+ 		return 1;
+ 	}
+-- 
+2.7.4
+

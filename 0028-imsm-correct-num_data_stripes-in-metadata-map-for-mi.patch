@@ -1,0 +1,64 @@
+From 4a353e6ec48e35437b27978add6cd2cd015f2cfe Mon Sep 17 00:00:00 2001
+From: Roman Sobanski <roman.sobanski@intel.com>
+Date: Fri, 8 Jun 2018 12:34:18 +0200
+Subject: [RHEL7.5 PATCH 1/1] imsm: correct num_data_stripes in metadata map
+ for migration
+
+When migrating an array from R0 to R10 num_data_stripes in metadata map
+will not be updated. Update it to allow correct migration process.
+Changes in R10 to R0 migration for clarity of code.
+
+Signed-off-by: Roman Sobanski <roman.sobanski@intel.com>
+Signed-off-by: Jes Sorensen <jsorensen@fb.com>
+---
+ super-intel.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/super-intel.c b/super-intel.c
+index a01be13..f011a31 100644
+--- a/super-intel.c
++++ b/super-intel.c
+@@ -9543,12 +9543,6 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
+ 	if (u->direction == R10_TO_R0) {
+ 		unsigned long long num_data_stripes;
+ 
+-		map->num_domains = 1;
+-		num_data_stripes = imsm_dev_size(dev) / 2;
+-		num_data_stripes /= map->blocks_per_strip;
+-		num_data_stripes /= map->num_domains;
+-		set_num_data_stripes(map, num_data_stripes);
+-
+ 		/* Number of failed disks must be half of initial disk number */
+ 		if (imsm_count_failed(super, dev, MAP_0) !=
+ 				(map->num_members / 2))
+@@ -9574,10 +9568,15 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
+ 		map->num_domains = 1;
+ 		map->raid_level = 0;
+ 		map->failed_disk_num = -1;
++		num_data_stripes = imsm_dev_size(dev) / 2;
++		num_data_stripes /= map->blocks_per_strip;
++		set_num_data_stripes(map, num_data_stripes);
+ 	}
+ 
+ 	if (u->direction == R0_TO_R10) {
+ 		void **space;
++		unsigned long long num_data_stripes;
++
+ 		/* update slots in current disk list */
+ 		for (dm = super->disks; dm; dm = dm->next) {
+ 			if (dm->index >= 0)
+@@ -9615,6 +9614,11 @@ static int apply_takeover_update(struct imsm_update_takeover *u,
+ 		map->map_state = IMSM_T_STATE_DEGRADED;
+ 		map->num_domains = 2;
+ 		map->raid_level = 1;
++		num_data_stripes = imsm_dev_size(dev) / 2;
++		num_data_stripes /= map->blocks_per_strip;
++		num_data_stripes /= map->num_domains;
++		set_num_data_stripes(map, num_data_stripes);
++
+ 		/* replace dev<->dev_new */
+ 		dv->dev = dev_new;
+ 	}
+-- 
+2.7.4
+

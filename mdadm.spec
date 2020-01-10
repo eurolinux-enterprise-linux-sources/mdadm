@@ -1,8 +1,9 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
 Version:     4.1
-Release:     1%{?dist}
-Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
+%define subversion rc1
+Release:     rc1_2%{?dist}
+Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}-%{subversion}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
 Source3:     mdadm.rules
@@ -12,27 +13,34 @@ Source6:     mdmonitor.service
 Source7:     mdadm.conf
 Source8:     mdadm_event.conf
 
-Patch1:      0001-Assemble-keep-MD_DISK_FAILFAST-and-MD_DISK_WRITEMOST.patch
-Patch2:      0002-Document-PART-POLICY-lines.patch
-Patch3:      0003-policy-support-devices-with-multiple-paths.patch
-Patch4:      0004-mdcheck-add-systemd-unit-files-to-run-mdcheck.patch
-Patch5:      0005-Monitor-add-system-timer-to-run-oneshot-periodically.patch
-Patch6:      0006-imsm-update-metadata-correctly-while-raid10-double-d.patch
-Patch7:      0007-Assemble-mask-FAILFAST-and-WRITEMOSTLY-flags-when-fi.patch
-Patch8:      0008-Grow-avoid-overflow-in-compute_backup_blocks.patch
-Patch9:      0009-Grow-report-correct-new-chunk-size.patch
-Patch10:     0010-policy.c-prevent-NULL-pointer-referencing.patch
-Patch11:     0011-policy.c-Fix-for-compiler-error.patch
-Patch12:     0012-imsm-finish-recovery-when-drive-with-rebuild-fails.patch
-Patch13:     0013-imsm-fix-reshape-for-2TB-drives.patch
-Patch14:     0014-Fix-spelling-typos.patch
-Patch15:     0015-Detail.c-do-not-skip-first-character-when-calling-xs.patch
-Patch16:     0016-Fix-reshape-for-decreasing-data-offset.patch
-Patch17:     0017-mdadm-tests-add-one-test-case-for-failfast-of-raid1.patch
-Patch18:     0018-mdmon-don-t-attempt-to-manage-new-arrays-when-termin.patch
-Patch19:     0019-mdmon-wait-for-previous-mdmon-to-exit-during-takeove.patch
-Patch20:     0020-Assemble-Fix-starting-array-with-initial-reshape-che.patch
-Patch21:     0021-add-missing-units-to-examine.patch
+Patch1:      0001-mdadm-fix-use-after-free-after-free_mdstat.patch
+Patch2:      0002-imsm-Allow-create-RAID-volume-with-link-to-container.patch
+Patch3:      0003-tests-func.sh-Fix-some-total-breakage-in-the-test-sc.patch
+Patch4:      0004-imsm-change-reserved-space-to-4MB.patch
+Patch5:      0005-imsm-add-functions-to-get-and-set-imsm-dev-size.patch
+Patch6:      0006-imsm-pass-already-existing-map-to-imsm_num_data_memb.patch
+Patch7:      0007-imsm-do-not-use-blocks_per_member-in-array-size-calc.patch
+Patch8:      0008-Prevent-create-IMSM-volume-with-size-smaller-than-1M.patch
+Patch9:      0009-mdadm-grow-correct-size-and-chunk_size-casting.patch
+Patch10:     0010-Fix-misspelling-of-alignment-and-geometry.patch
+Patch11:     0011-Do-not-confuse-gcc.patch
+Patch12:     0012-super-intel-Use-memcpy-to-avoid-confusing-gcc.patch
+Patch13:     0013-super-intel-Get-rid-of-unnused-string.patch
+Patch14:     0014-super-intel-Avoid-gcc-8.1-complaining-about-truncati.patch
+Patch15:     0015-super-intel-Do-not-truncate-last-character-of-volume.patch
+Patch16:     0016-imsm-Do-not-block-volume-creation-when-container-has.patch
+Patch17:     0017-imsm-Do-not-require-MDADM_EXPERIMENTAL-flag-anymore.patch
+Patch18:     0018-Monitor-Increase-size-of-percentalert-to-avoid-gcc-w.patch
+Patch19:     0019-mdopen-fix-gcc-8.1-string-overflow-error.patch
+Patch20:     0020-super0-Use-memmove-when-adjusting-sparc2.2-superbloc.patch
+Patch21:     0021-super1-Fix-cases-triggering-gcc-8.1-strncpy-truncate.patch
+Patch22:     0022-super-ddf-Fix-gcc-8.1-overflow-warnings.patch
+Patch23:     0023-Check-major-number-of-block-device-when-querying-md-.patch
+Patch24:     0024-mdadm-test-mdadm-needn-t-make-install-on-the-system.patch
+Patch25:     0025-mdadm-test-correct-tests-testdev-as-testdev-in-02r5g.patch
+Patch26:     0026-gcc-8-coverity-hack.patch
+Patch27:     0027-Assemble.c-Don-t-ignore-faulty-disk-when-array-is-au.patch
+Patch28:     0028-imsm-correct-num_data_stripes-in-metadata-map-for-mi.patch
 
 # RHEL customization patches
 Patch195:    mdadm-3.4-udev-race.patch
@@ -62,7 +70,7 @@ almost all functions without a configuration file, though a configuration
 file can be used to help with some common tasks.
 
 %prep
-%setup -q
+%setup -q -n %{name}-%{version}_%{subversion}
 
 %patch1 -p1 -b  .0001
 %patch2 -p1 -b  .0002
@@ -85,6 +93,13 @@ file can be used to help with some common tasks.
 %patch19 -p1 -b  .0019
 %patch20 -p1 -b  .0020 
 %patch21 -p1 -b  .0021
+%patch22 -p1 -b  .0022
+%patch23 -p1 -b  .0023
+%patch24 -p1 -b  .0024
+%patch25 -p1 -b  .0025
+%patch26 -p1 -b  .0026
+%patch27 -p1 -b  .0027
+%patch28 -p1 -b  .0028
 
 # RHEL customization patches
 %patch195 -p1 -b .race
@@ -152,10 +167,6 @@ rm -rf %{buildroot}
 /etc/libreport/events.d/*
 
 %changelog
-* Mon Mar 11 2019 Xiao Ni <xni@redhat.com> - 4.1.1
-- Update to upstream 4.1 and backport 21 patches after 4.1
-- Resolves rhbz#1641473
-
 * Thu Aug 02 2018 Xiao Ni <xni@redhat.com> - 4.1-rc1-2
 - Fix two IMSM bugs
 - Resolves rhbz#1602362 and rhbz#1602358
