@@ -1,7 +1,7 @@
 [Unit]
-Description=Activate md array %I even though degraded
+Description=Activate md array even though degraded
 DefaultDependencies=no
-ConditionPathExists=!/sys/devices/virtual/block/%i/md/sync_action
+Conflicts=sys-devices-virtual-block-%i.device
 
 [Service]
 Type=oneshot

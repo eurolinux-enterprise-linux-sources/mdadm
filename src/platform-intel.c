@@ -48,9 +48,9 @@ static void free_sys_dev(struct sys_dev **list)
 struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 {
 	/* search sysfs for devices driven by 'driver' */
-	char path[PATH_MAX];
-	char link[PATH_MAX];
-	char *c, *p;
+	char path[292];
+	char link[256];
+	char *c;
 	DIR *driver_dir;
 	struct dirent *de;
 	struct sys_dev *head = NULL;
@@ -123,22 +123,6 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		if (devpath_to_ll(path, "class", &class) != 0)
 			continue;
 
-		/*
-		 * Each VMD device (domain) adds separate PCI bus, it is better
-		 * to store path as a path to that bus (easier further
-		 * determination which NVMe dev is connected to this particular
-		 * VMD domain).
-		 */
-		if (type == SYS_DEV_VMD) {
-			sprintf(path, "/sys/bus/%s/drivers/%s/%s/domain/device",
-				bus, driver, de->d_name);
-		}
-		p = realpath(path, NULL);
-		if (p == NULL) {
-			pr_err("Unable to get real path for '%s'\n", path);
-			continue;
-		}
-
 		/* start / add list entry */
 		if (!head) {
 			head = xmalloc(sizeof(*head));
@@ -156,9 +140,16 @@ struct sys_dev *find_driver_devices(const char *bus, const char *driver)
 		list->dev_id = (__u16) dev_id;
 		list->class = (__u32) class;
 		list->type = type;
+		/* Each VMD device (domain) adds separate PCI bus, it is better to
+		 * store path as a path to that bus (easier further determination which
+		 * NVMe dev is connected to this particular VMD domain).
+		 */
+		if (type == SYS_DEV_VMD) {
+			sprintf(path, "/sys/bus/%s/drivers/%s/%s/domain/device",
+			bus, driver, de->d_name);
+		}
+		list->path = realpath(path, NULL);
 		list->next = NULL;
-		list->path = p;
-
 		if ((list->pci_id = strrchr(list->path, '/')) != NULL)
 			list->pci_id++;
 	}
@@ -183,16 +174,6 @@ struct sys_dev *device_by_id(__u16 device_id)
 
 	for (iter = intel_devices; iter != NULL; iter = iter->next)
 		if (iter->dev_id == device_id)
-			return iter;
-	return NULL;
-}
-
-struct sys_dev *device_by_id_and_path(__u16 device_id, const char *path)
-{
-	struct sys_dev *iter;
-
-	for (iter = intel_devices; iter != NULL; iter = iter->next)
-		if ((iter->dev_id == device_id) && strstr(iter->path, path))
 			return iter;
 	return NULL;
 }
@@ -548,8 +529,8 @@ static int read_efi_variable(void *buffer, ssize_t buf_size, char *variable_name
 
 	errno = 0;
 	var_data_len = strtoul(buf, NULL, 16);
-	if ((errno == ERANGE && (var_data_len == LONG_MAX)) ||
-	    (errno != 0 && var_data_len == 0))
+	if ((errno == ERANGE && (var_data_len == LONG_MAX))
+	    || (errno != 0 && var_data_len == 0))
 		return 1;
 
 	/* get data */
@@ -743,10 +724,8 @@ char *vmd_domain_to_controller(struct sys_dev *hba, char *buf)
 		return NULL;
 
 	dir = opendir("/sys/bus/pci/drivers/vmd");
-	if (!dir)
-		return NULL;
 
-	for (ent = readdir(dir); ent; ent = readdir(dir)) {
+	for (ent = dir ? readdir(dir) : NULL; ent; ent = readdir(dir)) {
 		sprintf(path, "/sys/bus/pci/drivers/vmd/%s/domain/device",
 			ent->d_name);
 
@@ -755,11 +734,8 @@ char *vmd_domain_to_controller(struct sys_dev *hba, char *buf)
 
 		if (strncmp(buf, hba->path, strlen(buf)) == 0) {
 			sprintf(path, "/sys/bus/pci/drivers/vmd/%s", ent->d_name);
-			closedir(dir);
 			return realpath(path, buf);
 		}
 	}
-
-	closedir(dir);
 	return NULL;
 }

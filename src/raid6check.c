@@ -266,8 +266,7 @@ int manual_repair(int chunk_size, int syndrome_disks,
 				failed_data = failed_slot2;
 			else
 				failed_data = failed_slot1;
-
-			printf("Repairing D(%d) and P\n", failed_data);
+				printf("Repairing D(%d) and P\n", failed_data);
 			raid6_datap_recov(syndrome_disks+2, chunk_size,
 					  failed_data, (uint8_t**)blocks, 1);
 		} else {
@@ -562,7 +561,7 @@ int main(int argc, char *argv[])
 			  GET_LEVEL|
 			  GET_LAYOUT|
 			  GET_DISKS|
-			  GET_STATE |
+			  GET_DEGRADED |
 			  GET_COMPONENT|
 			  GET_CHUNK|
 			  GET_DEVS|

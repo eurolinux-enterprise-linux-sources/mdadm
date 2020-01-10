@@ -500,6 +500,7 @@ struct ddf_super {
 	} *dlist, *add_list;
 };
 
+#ifndef MDASSEMBLE
 static int load_super_ddf_all(struct supertype *st, int fd,
 			      void **sbp, char *devname);
 static int get_svd_state(const struct ddf_super *, const struct vcl *);
@@ -517,6 +518,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 				     unsigned long long data_offset,
 				     char *dev, unsigned long long *freesize,
 				     int verbose);
+#endif
 
 static void free_super_ddf(struct supertype *st);
 static int all_ff(const char *guid);
@@ -670,8 +672,8 @@ static int layout_md2ddf(const mdu_array_info_t *array,
 			sec_elmnt_count = array->raid_disks / 2;
 			srl = DDF_2SPANNED;
 			prl = DDF_RAID1;
-		} else if (array->raid_disks % 3 == 0 &&
-			   array->layout == 0x103) {
+		} else if (array->raid_disks % 3 == 0
+			   && array->layout == 0x103) {
 			rlq = DDF_RAID1_MULTI;
 			prim_elmnt_count =  cpu_to_be16(3);
 			sec_elmnt_count = array->raid_disks / 3;
@@ -853,8 +855,8 @@ static void *load_section(int fd, struct ddf_super *super, void *buf,
 	int dofree = (buf == NULL);
 
 	if (check)
-		if (len != 2 && len != 8 && len != 32 &&
-		    len != 128 && len != 512)
+		if (len != 2 && len != 8 && len != 32
+		    && len != 128 && len != 512)
 			return NULL;
 
 	if (len > 1024)
@@ -932,13 +934,14 @@ static int load_ddf_headers(int fd, struct ddf_super *super, char *devname)
 	if (load_ddf_header(fd, be64_to_cpu(super->anchor.secondary_lba),
 			    dsize >> 9,  2,
 			    &super->secondary, &super->anchor)) {
-		if (super->active == NULL ||
-		    (be32_to_cpu(super->primary.seq)
-		     < be32_to_cpu(super->secondary.seq) &&
-			!super->secondary.openflag) ||
-		    (be32_to_cpu(super->primary.seq) ==
-		     be32_to_cpu(super->secondary.seq) &&
-			super->primary.openflag && !super->secondary.openflag))
+		if (super->active == NULL
+		    || (be32_to_cpu(super->primary.seq)
+			< be32_to_cpu(super->secondary.seq) &&
+			!super->secondary.openflag)
+		    || (be32_to_cpu(super->primary.seq)
+			== be32_to_cpu(super->secondary.seq) &&
+			super->primary.openflag && !super->secondary.openflag)
+			)
 			super->active = &super->secondary;
 	} else if (devname &&
 		   be64_to_cpu(super->anchor.secondary_lba) != ~(__u64)0)
@@ -1302,6 +1305,8 @@ static struct supertype *match_metadata_desc_ddf(char *arg)
 	return st;
 }
 
+#ifndef MDASSEMBLE
+
 static mapping_t ddf_state[] = {
 	{ "Optimal", 0},
 	{ "Degraded", 1},
@@ -1350,6 +1355,7 @@ static mapping_t ddf_sec_level[] = {
 	{ "Spanned", DDF_2SPANNED},
 	{ NULL, 0}
 };
+#endif
 
 static int all_ff(const char *guid)
 {
@@ -1376,6 +1382,7 @@ static const char *guid_str(const char *guid)
 	return (const char *) buf;
 }
 
+#ifndef MDASSEMBLE
 static void print_guid(char *guid, int tstamp)
 {
 	/* A GUIDs are part (or all) ASCII and part binary.
@@ -1735,12 +1742,13 @@ static void detail_super_ddf(struct supertype *st, char *homehost)
 	struct ddf_super *sb = st->sb;
 	int cnt = be16_to_cpu(sb->virt->populated_vdes);
 
-	printf("    Container GUID : "); print_guid(sb->anchor.guid, 1);
+	printf(" Container GUID : "); print_guid(sb->anchor.guid, 1);
 	printf("\n");
-	printf("               Seq : %08x\n", be32_to_cpu(sb->active->seq));
-	printf("     Virtual Disks : %d\n", cnt);
+	printf("            Seq : %08x\n", be32_to_cpu(sb->active->seq));
+	printf("  Virtual Disks : %d\n", cnt);
 	printf("\n");
 }
+#endif
 
 static const char *vendors_with_variable_volume_UUID[] = {
 	"LSI      ",
@@ -1787,6 +1795,7 @@ static void uuid_of_ddf_subarray(const struct ddf_super *ddf,
 	memcpy(uuid, sha, 4*4);
 }
 
+#ifndef MDASSEMBLE
 static void brief_detail_super_ddf(struct supertype *st)
 {
 	struct mdinfo info;
@@ -1802,6 +1811,7 @@ static void brief_detail_super_ddf(struct supertype *st)
 	fname_from_uuid(st, &info, nbuf,':');
 	printf(" UUID=%s", nbuf + 5);
 }
+#endif
 
 static int match_home_ddf(struct supertype *st, char *homehost)
 {
@@ -1823,6 +1833,7 @@ static int match_home_ddf(struct supertype *st, char *homehost)
 		ddf->controller.vendor_data[len] == 0);
 }
 
+#ifndef MDASSEMBLE
 static int find_index_in_bvd(const struct ddf_super *ddf,
 			     const struct vd_config *conf, unsigned int n,
 			     unsigned int *n_bvd)
@@ -1883,8 +1894,8 @@ static struct vd_config *find_vdcr(struct ddf_super *ddf, unsigned int inst,
 		nsec = n / be16_to_cpu(conf->prim_elmnt_count);
 		if (conf->sec_elmnt_seq != nsec) {
 			for (ibvd = 1; ibvd < conf->sec_elmnt_count; ibvd++) {
-				if (v->other_bvds[ibvd-1]->sec_elmnt_seq ==
-				    nsec)
+				if (v->other_bvds[ibvd-1]->sec_elmnt_seq
+				    == nsec)
 					break;
 			}
 			if (ibvd == conf->sec_elmnt_count)
@@ -1903,6 +1914,7 @@ bad:
 	pr_err("Could't find disk %d in array %u\n", n, inst);
 	return NULL;
 }
+#endif
 
 static int find_phys(const struct ddf_super *ddf, be32 phys_refnum)
 {
@@ -2027,8 +2039,8 @@ static void getinfo_super_ddf(struct supertype *st, struct mdinfo *info, char *m
 			       be32_to_cpu(ddf->phys->entries[e].refnum) == 0xffffffff)
 				e++;
 			if (i < info->array.raid_disks && e < max &&
-			    !(be16_to_cpu(ddf->phys->entries[e].state) &
-			      DDF_Failed))
+			    !(be16_to_cpu(ddf->phys->entries[e].state)
+			      & DDF_Failed))
 				map[i] = 1;
 			else
 				map[i] = 0;
@@ -2113,10 +2125,11 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	info->resync_start = 0;
 	info->reshape_active = 0;
 	info->recovery_blocked = 0;
-	if (!(ddf->virt->entries[info->container_member].state &
-	      DDF_state_inconsistent) &&
-	    (ddf->virt->entries[info->container_member].init_state &
-	     DDF_initstate_mask) == DDF_init_full)
+	if (!(ddf->virt->entries[info->container_member].state
+	      & DDF_state_inconsistent)  &&
+	    (ddf->virt->entries[info->container_member].init_state
+	     & DDF_initstate_mask)
+	    == DDF_init_full)
 		info->resync_start = MaxSector;
 
 	uuid_from_super_ddf(st, info->uuid);
@@ -2133,7 +2146,7 @@ static void getinfo_super_ddf_bvd(struct supertype *st, struct mdinfo *info, cha
 	if (map)
 		for (j = 0; j < map_disks; j++) {
 			map[j] = 0;
-			if (j < info->array.raid_disks) {
+			if (j <  info->array.raid_disks) {
 				int i = find_phys(ddf, vc->conf.phys_refnum[j]);
 				if (i >= 0 &&
 				    (be16_to_cpu(ddf->phys->entries[i].state)
@@ -2261,6 +2274,7 @@ static unsigned int find_vde_by_name(const struct ddf_super *ddf,
 	return DDF_NOTFOUND;
 }
 
+#ifndef MDASSEMBLE
 static unsigned int find_vde_by_guid(const struct ddf_super *ddf,
 				     const char *guid)
 {
@@ -2272,10 +2286,11 @@ static unsigned int find_vde_by_guid(const struct ddf_super *ddf,
 			return i;
 	return DDF_NOTFOUND;
 }
+#endif
 
 static int init_super_ddf(struct supertype *st,
 			  mdu_array_info_t *info,
-			  struct shape *s, char *name, char *homehost,
+			  unsigned long long size, char *name, char *homehost,
 			  int *uuid, unsigned long long data_offset)
 {
 	/* This is primarily called by Create when creating a new array.
@@ -2313,7 +2328,7 @@ static int init_super_ddf(struct supertype *st,
 	struct virtual_disk *vd;
 
 	if (st->sb)
-		return init_super_ddf_bvd(st, info, s->size, name, homehost, uuid,
+		return init_super_ddf_bvd(st, info, size, name, homehost, uuid,
 					  data_offset);
 
 	if (posix_memalign((void**)&ddf, 512, sizeof(*ddf)) != 0) {
@@ -2492,6 +2507,7 @@ static int chunk_to_shift(int chunksize)
 	return ffs(chunksize/512)-1;
 }
 
+#ifndef MDASSEMBLE
 struct extent {
 	unsigned long long start, size;
 };
@@ -2592,6 +2608,7 @@ static unsigned long long find_space(
 	free(e);
 	return INVALID_SECTORS;
 }
+#endif
 
 static int init_super_ddf_bvd(struct supertype *st,
 			      mdu_array_info_t *info,
@@ -2671,10 +2688,10 @@ static int init_super_ddf_bvd(struct supertype *st,
 		free(vcl);
 		return 0;
 	}
-	vc->blocks = cpu_to_be64(size * 2);
+	vc->blocks = cpu_to_be64(info->size * 2);
 	vc->array_blocks = cpu_to_be64(
 		calc_array_size(info->level, info->raid_disks, info->layout,
-				info->chunk_size, size * 2));
+				info->chunk_size, info->size*2));
 	memset(vc->pad1, 0xff, 8);
 	vc->spare_refs[0] = cpu_to_be32(0xffffffff);
 	vc->spare_refs[1] = cpu_to_be32(0xffffffff);
@@ -2710,6 +2727,7 @@ static int init_super_ddf_bvd(struct supertype *st,
 	return 1;
 }
 
+#ifndef MDASSEMBLE
 static void add_to_super_ddf_bvd(struct supertype *st,
 				 mdu_disk_info_t *dk, int fd, char *devname,
 				 unsigned long long data_offset)
@@ -2997,6 +3015,7 @@ static int remove_from_super_ddf(struct supertype *st, mdu_disk_info_t *dk)
 	}
 	return 0;
 }
+#endif
 
 /*
  * This is the write_init_super method for a ddf container.  It is
@@ -3157,6 +3176,7 @@ static int _write_super_to_disk(struct ddf_super *ddf, struct dl *d)
 	return 1;
 }
 
+#ifndef MDASSEMBLE
 static int __write_init_super_ddf(struct supertype *st)
 {
 	struct ddf_super *ddf = st->sb;
@@ -3239,6 +3259,8 @@ static int write_init_super_ddf(struct supertype *st)
 	}
 }
 
+#endif
+
 static __u64 avail_size_ddf(struct supertype *st, __u64 devsize,
 			    unsigned long long data_offset)
 {
@@ -3247,6 +3269,8 @@ static __u64 avail_size_ddf(struct supertype *st, __u64 devsize,
 		return 0;
 	return devsize - 32*1024*2;
 }
+
+#ifndef MDASSEMBLE
 
 static int reserve_space(struct supertype *st, int raiddisks,
 			 unsigned long long size, int chunk,
@@ -3323,7 +3347,7 @@ static int validate_geometry_ddf(struct supertype *st,
 				 int *chunk, unsigned long long size,
 				 unsigned long long data_offset,
 				 char *dev, unsigned long long *freesize,
-				 int consistency_policy, int verbose)
+				 int verbose)
 {
 	int fd;
 	struct mdinfo *sra;
@@ -3488,7 +3512,7 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 				     char *dev, unsigned long long *freesize,
 				     int verbose)
 {
-	dev_t rdev;
+	struct stat stb;
 	struct ddf_super *ddf = st->sb;
 	struct dl *dl;
 	unsigned long long maxsize;
@@ -3511,8 +3535,8 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		if (minsize == 0)
 			minsize = 8;
 		for (dl = ddf->dlist; dl ; dl = dl->next) {
-			if (find_space(ddf, dl, data_offset, &minsize) !=
-			    INVALID_SECTORS)
+			if (find_space(ddf, dl, data_offset, &minsize)
+			    != INVALID_SECTORS)
 				dcnt++;
 		}
 		if (dcnt < raiddisks) {
@@ -3524,11 +3548,13 @@ static int validate_geometry_ddf_bvd(struct supertype *st,
 		return 1;
 	}
 	/* This device must be a member of the set */
-	if (!stat_is_blkdev(dev, &rdev))
+	if (stat(dev, &stb) < 0)
+		return 0;
+	if ((S_IFMT & stb.st_mode) != S_IFBLK)
 		return 0;
 	for (dl = ddf->dlist ; dl ; dl = dl->next) {
-		if (dl->major == (int)major(rdev) &&
-		    dl->minor == (int)minor(rdev))
+		if (dl->major == (int)major(stb.st_rdev) &&
+		    dl->minor == (int)minor(stb.st_rdev))
 			break;
 	}
 	if (!dl) {
@@ -3555,7 +3581,7 @@ static int load_super_ddf_all(struct supertype *st, int fd,
 	char nm[20];
 	int dfd;
 
-	sra = sysfs_read(fd, NULL, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
+	sra = sysfs_read(fd, 0, GET_LEVEL|GET_VERSION|GET_DEVS|GET_STATE);
 	if (!sra)
 		return 1;
 	if (sra->array.major_version != -1 ||
@@ -3626,6 +3652,8 @@ static int load_container_ddf(struct supertype *st, int fd,
 {
 	return load_super_ddf_all(st, fd, &st->sb, devname);
 }
+
+#endif /* MDASSEMBLE */
 
 static int check_secondary(const struct vcl *vc)
 {
@@ -3814,13 +3842,13 @@ static struct mdinfo *container_content_ddf(struct supertype *st, char *subarray
 			unsigned int iphys;
 			int stt;
 
-			if (be32_to_cpu(ddf->phys->entries[pd].refnum) ==
-			    0xffffffff)
+			if (be32_to_cpu(ddf->phys->entries[pd].refnum)
+			    == 0xFFFFFFFF)
 				continue;
 
 			stt = be16_to_cpu(ddf->phys->entries[pd].state);
-			if ((stt & (DDF_Online|DDF_Failed|DDF_Rebuilding)) !=
-			    DDF_Online)
+			if ((stt & (DDF_Online|DDF_Failed|DDF_Rebuilding))
+			    != DDF_Online)
 				continue;
 
 			i = get_pd_index_from_refnum(
@@ -4004,8 +4032,8 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 			continue;
 
 		if (posix_memalign((void **)&dl1, 512,
-				   sizeof(*dl1) + (first->max_part) *
-				   sizeof(dl1->vlist[0])) != 0) {
+		       sizeof(*dl1) + (first->max_part) * sizeof(dl1->vlist[0]))
+		    != 0) {
 			pr_err("could not allocate disk info buffer\n");
 			return 3;
 		}
@@ -4047,6 +4075,7 @@ static int compare_super_ddf(struct supertype *st, struct supertype *tst)
 	return 0;
 }
 
+#ifndef MDASSEMBLE
 /*
  * A new array 'a' has been started which claims to be instance 'inst'
  * within container 'c'.
@@ -4205,8 +4234,8 @@ static int get_bvd_state(const struct ddf_super *ddf,
 		if (pd < 0)
 			continue;
 		st = be16_to_cpu(ddf->phys->entries[pd].state);
-		if ((st & (DDF_Online|DDF_Failed|DDF_Rebuilding)) ==
-		    DDF_Online) {
+		if ((st & (DDF_Online|DDF_Failed|DDF_Rebuilding))
+		    == DDF_Online) {
 			working++;
 			avail[i] = 1;
 		}
@@ -4616,9 +4645,9 @@ static void ddf_remove_failed(struct ddf_super *ddf)
 		    0xFFFFFFFF)
 			continue;
 		if (be16_and(ddf->phys->entries[pdnum].state,
-			     cpu_to_be16(DDF_Failed)) &&
-		    be16_and(ddf->phys->entries[pdnum].state,
-			     cpu_to_be16(DDF_Transition))) {
+			     cpu_to_be16(DDF_Failed))
+		    && be16_and(ddf->phys->entries[pdnum].state,
+				cpu_to_be16(DDF_Transition))) {
 			/* skip this one unless in dlist*/
 			for (dl = ddf->dlist; dl; dl = dl->next)
 				if (dl->pdnum == (int)pdnum)
@@ -5149,8 +5178,8 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 		vc = (struct vd_config *)(mu->buf
 					  + i_sec * ddf->conf_rec_len * 512);
 		for (dl = ddf->dlist; dl; dl = dl->next)
-			if (dl->major == di->disk.major &&
-			    dl->minor == di->disk.minor)
+			if (dl->major == di->disk.major
+			    && dl->minor == di->disk.minor)
 				break;
 		if (!dl || dl->pdnum < 0) {
 			pr_err("BUG: can't find disk %d (%d/%d)\n",
@@ -5167,6 +5196,7 @@ static struct mdinfo *ddf_activate_spare(struct active_array *a,
 	*updates = mu;
 	return rv;
 }
+#endif /* MDASSEMBLE */
 
 static int ddf_level_to_layout(int level)
 {
@@ -5195,6 +5225,7 @@ static void default_geometry_ddf(struct supertype *st, int *level, int *layout, 
 }
 
 struct superswitch super_ddf = {
+#ifndef	MDASSEMBLE
 	.examine_super	= examine_super_ddf,
 	.brief_examine_super = brief_examine_super_ddf,
 	.brief_examine_subarrays = brief_examine_subarrays_ddf,
@@ -5208,6 +5239,7 @@ struct superswitch super_ddf = {
 	.load_container	= load_container_ddf,
 	.copy_metadata = copy_metadata_ddf,
 	.kill_subarray  = kill_subarray_ddf,
+#endif
 	.match_home	= match_home_ddf,
 	.uuid_from_super= uuid_from_super_ddf,
 	.getinfo_super  = getinfo_super_ddf,
@@ -5227,6 +5259,7 @@ struct superswitch super_ddf = {
 
 	.external	= 1,
 
+#ifndef MDASSEMBLE
 /* for mdmon */
 	.open_new       = ddf_open_new,
 	.set_array_state= ddf_set_array_state,
@@ -5235,5 +5268,6 @@ struct superswitch super_ddf = {
 	.process_update	= ddf_process_update,
 	.prepare_update	= ddf_prepare_update,
 	.activate_spare = ddf_activate_spare,
+#endif
 	.name = "ddf",
 };

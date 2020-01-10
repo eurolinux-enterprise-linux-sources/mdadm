@@ -27,17 +27,15 @@
 #include	<dirent.h>
 #include	<ctype.h>
 
-#define MAX_SYSFS_PATH_LEN	120
-
-int load_sys(char *path, char *buf, int len)
+int load_sys(char *path, char *buf)
 {
 	int fd = open(path, O_RDONLY);
 	int n;
 	if (fd < 0)
 		return -1;
-	n = read(fd, buf, len);
+	n = read(fd, buf, 1024);
 	close(fd);
-	if (n <0 || n >= len)
+	if (n <0 || n >= 1024)
 		return -1;
 	buf[n] = 0;
 	if (n && buf[n-1] == '\n')
@@ -52,10 +50,8 @@ void sysfs_free(struct mdinfo *sra)
 		while (sra->devs) {
 			struct mdinfo *d = sra->devs;
 			sra->devs = d->next;
-			free(d->bb.entries);
 			free(d);
 		}
-		free(sra->bb.entries);
 		free(sra);
 		sra = sra2;
 	}
@@ -63,51 +59,39 @@ void sysfs_free(struct mdinfo *sra)
 
 int sysfs_open(char *devnm, char *devname, char *attr)
 {
-	char fname[MAX_SYSFS_PATH_LEN];
+	char fname[50];
 	int fd;
 
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md/", devnm);
+	sprintf(fname, "/sys/block/%s/md/", devnm);
 	if (devname) {
-		strncat(fname, devname, MAX_SYSFS_PATH_LEN - strlen(fname));
-		strncat(fname, "/", MAX_SYSFS_PATH_LEN - strlen(fname));
+		strcat(fname, devname);
+		strcat(fname, "/");
 	}
-	strncat(fname, attr, MAX_SYSFS_PATH_LEN - strlen(fname));
+	strcat(fname, attr);
 	fd = open(fname, O_RDWR);
 	if (fd < 0 && errno == EACCES)
 		fd = open(fname, O_RDONLY);
 	return fd;
 }
 
-void sysfs_init_dev(struct mdinfo *mdi, dev_t devid)
+void sysfs_init_dev(struct mdinfo *mdi, unsigned long devid)
 {
 	snprintf(mdi->sys_name,
 		 sizeof(mdi->sys_name), "dev-%s", devid2kname(devid));
 }
 
-int sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
+void sysfs_init(struct mdinfo *mdi, int fd, char *devnm)
 {
-	struct stat stb;
-	char fname[MAX_SYSFS_PATH_LEN];
-	int retval = -ENODEV;
-
 	mdi->sys_name[0] = 0;
-	if (fd >= 0)
+	if (fd >= 0) {
+		mdu_version_t vers;
+		if (ioctl(fd, RAID_VERSION, &vers) != 0)
+			return;
 		devnm = fd2devnm(fd);
-
+	}
 	if (devnm == NULL)
-		goto out;
-
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md", devnm);
-
-	if (stat(fname, &stb))
-		goto out;
-	if (!S_ISDIR(stb.st_mode))
-		goto out;
+		return;
 	strcpy(mdi->sys_name, devnm);
-
-	retval = 0;
-out:
-	return retval;
 }
 
 struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
@@ -122,7 +106,8 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	struct dirent *de;
 
 	sra = xcalloc(1, sizeof(*sra));
-	if (sysfs_init(sra, fd, devnm)) {
+	sysfs_init(sra, fd, devnm);
+	if (sra->sys_name[0] == 0) {
 		free(sra);
 		return NULL;
 	}
@@ -133,7 +118,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	sra->devs = NULL;
 	if (options & GET_VERSION) {
 		strcpy(base, "metadata_version");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		if (strncmp(buf, "none", 4) == 0) {
 			sra->array.major_version =
@@ -152,25 +137,31 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_LEVEL) {
 		strcpy(base, "level");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		sra->array.level = map_name(pers, buf);
 	}
 	if (options & GET_LAYOUT) {
 		strcpy(base, "layout");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		sra->array.layout = strtoul(buf, NULL, 0);
 	}
-	if (options & (GET_DISKS|GET_STATE)) {
+	if (options & GET_DISKS) {
 		strcpy(base, "raid_disks");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		sra->array.raid_disks = strtoul(buf, NULL, 0);
 	}
+	if (options & GET_DEGRADED) {
+		strcpy(base, "degraded");
+		if (load_sys(fname, buf))
+			goto abort;
+		sra->array.failed_disks = strtoul(buf, NULL, 0);
+	}
 	if (options & GET_COMPONENT) {
 		strcpy(base, "component_size");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		sra->component_size = strtoull(buf, NULL, 0);
 		/* sysfs reports "K", but we want sectors */
@@ -178,13 +169,13 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_CHUNK) {
 		strcpy(base, "chunk_size");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		sra->array.chunk_size = strtoul(buf, NULL, 0);
 	}
 	if (options & GET_CACHE) {
 		strcpy(base, "stripe_cache_size");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			/* Probably level doesn't support it */
 			sra->cache_size = 0;
 		else
@@ -192,7 +183,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_MISMATCH) {
 		strcpy(base, "mismatch_cnt");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		sra->mismatch_cnt = strtoul(buf, NULL, 0);
 	}
@@ -204,7 +195,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		size_t len;
 
 		strcpy(base, "safe_mode_delay");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 
 		/* remove a period, and count digits after it */
@@ -227,7 +218,7 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	}
 	if (options & GET_BITMAP_LOCATION) {
 		strcpy(base, "bitmap/location");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, buf))
 			goto abort;
 		if (strncmp(buf, "file", 4) == 0)
 			sra->bitmap_offset = 1;
@@ -241,19 +232,10 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 	if (options & GET_ARRAY_STATE) {
 		strcpy(base, "array_state");
-		if (load_sys(fname, buf, sizeof(buf)))
+		if (load_sys(fname, sra->sysfs_array_state))
 			goto abort;
-		sra->array_state = map_name(sysfs_array_states, buf);
-	}
-
-	if (options & GET_CONSISTENCY_POLICY) {
-		strcpy(base, "consistency_policy");
-		if (load_sys(fname, buf, sizeof(buf)))
-			sra->consistency_policy = CONSISTENCY_POLICY_UNKNOWN;
-		else
-			sra->consistency_policy = map_name(consistency_policies,
-							   buf);
-	}
+	} else
+		sra->sysfs_array_state[0] = 0;
 
 	if (! (options & GET_DEVS))
 		return sra;
@@ -264,9 +246,6 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 	if (!dir)
 		goto abort;
 	sra->array.spare_disks = 0;
-	sra->array.active_disks = 0;
-	sra->array.failed_disks = 0;
-	sra->array.working_disks = 0;
 
 	devp = &sra->devs;
 	sra->devs = NULL;
@@ -279,11 +258,11 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		dbase = base + strlen(base);
 		*dbase++ = '/';
 
-		dev = xcalloc(1, sizeof(*dev));
+		dev = xmalloc(sizeof(*dev));
 
 		/* Always get slot, major, minor */
 		strcpy(dbase, "slot");
-		if (load_sys(fname, buf, sizeof(buf))) {
+		if (load_sys(fname, buf)) {
 			/* hmm... unable to read 'slot' maybe the device
 			 * is going away?
 			 */
@@ -307,20 +286,20 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 		dev->disk.raid_disk = strtoul(buf, &ep, 10);
 		if (*ep) dev->disk.raid_disk = -1;
 
-		sra->array.nr_disks++;
 		strcpy(dbase, "block/dev");
-		if (load_sys(fname, buf, sizeof(buf))) {
+		if (load_sys(fname, buf)) {
 			/* assume this is a stale reference to a hot
 			 * removed device
 			 */
 			free(dev);
 			continue;
 		}
+		sra->array.nr_disks++;
 		sscanf(buf, "%d:%d", &dev->disk.major, &dev->disk.minor);
 
 		/* special case check for block devices that can go 'offline' */
 		strcpy(dbase, "block/device/state");
-		if (load_sys(fname, buf, sizeof(buf)) == 0 &&
+		if (load_sys(fname, buf) == 0 &&
 		    strncmp(buf, "offline", 7) == 0) {
 			free(dev);
 			continue;
@@ -333,50 +312,40 @@ struct mdinfo *sysfs_read(int fd, char *devnm, unsigned long options)
 
 		if (options & GET_OFFSET) {
 			strcpy(dbase, "offset");
-			if (load_sys(fname, buf, sizeof(buf)))
+			if (load_sys(fname, buf))
 				goto abort;
 			dev->data_offset = strtoull(buf, NULL, 0);
 			strcpy(dbase, "new_offset");
-			if (load_sys(fname, buf, sizeof(buf)) == 0)
+			if (load_sys(fname, buf) == 0)
 				dev->new_data_offset = strtoull(buf, NULL, 0);
 			else
 				dev->new_data_offset = dev->data_offset;
 		}
 		if (options & GET_SIZE) {
 			strcpy(dbase, "size");
-			if (load_sys(fname, buf, sizeof(buf)))
+			if (load_sys(fname, buf))
 				goto abort;
 			dev->component_size = strtoull(buf, NULL, 0) * 2;
 		}
 		if (options & GET_STATE) {
 			dev->disk.state = 0;
 			strcpy(dbase, "state");
-			if (load_sys(fname, buf, sizeof(buf)))
+			if (load_sys(fname, buf))
 				goto abort;
+			if (strstr(buf, "in_sync"))
+				dev->disk.state |= (1<<MD_DISK_SYNC);
 			if (strstr(buf, "faulty"))
 				dev->disk.state |= (1<<MD_DISK_FAULTY);
-			else {
-				sra->array.working_disks++;
-				if (strstr(buf, "in_sync")) {
-					dev->disk.state |= (1<<MD_DISK_SYNC);
-					sra->array.active_disks++;
-				}
-				if (dev->disk.state == 0)
-					sra->array.spare_disks++;
-			}
+			if (dev->disk.state == 0)
+				sra->array.spare_disks++;
 		}
 		if (options & GET_ERROR) {
 			strcpy(buf, "errors");
-			if (load_sys(fname, buf, sizeof(buf)))
+			if (load_sys(fname, buf))
 				goto abort;
 			dev->errors = strtoul(buf, NULL, 0);
 		}
 	}
-
-	if ((options & GET_STATE) && sra->array.raid_disks)
-		sra->array.failed_disks = sra->array.raid_disks -
-			sra->array.active_disks - sra->array.spare_disks;
-
 	closedir(dir);
 	return sra;
 
@@ -422,12 +391,15 @@ unsigned long long get_component_size(int fd)
 	 * This returns in units of sectors.
 	 */
 	struct stat stb;
-	char fname[MAX_SYSFS_PATH_LEN];
+	char fname[50];
 	int n;
-	if (fstat(fd, &stb))
-		return 0;
-	snprintf(fname, MAX_SYSFS_PATH_LEN,
-		 "/sys/block/%s/md/component_size", stat2devnm(&stb));
+	if (fstat(fd, &stb)) return 0;
+	if (major(stb.st_rdev) != (unsigned)get_mdp_major())
+		sprintf(fname, "/sys/block/md%d/md/component_size",
+			(int)minor(stb.st_rdev));
+	else
+		sprintf(fname, "/sys/block/md_d%d/md/component_size",
+			(int)minor(stb.st_rdev)>>MdpMinorShift);
 	fd = open(fname, O_RDONLY);
 	if (fd < 0)
 		return 0;
@@ -442,11 +414,11 @@ unsigned long long get_component_size(int fd)
 int sysfs_set_str(struct mdinfo *sra, struct mdinfo *dev,
 		  char *name, char *val)
 {
-	char fname[MAX_SYSFS_PATH_LEN];
+	char fname[50];
 	unsigned int n;
 	int fd;
 
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md/%s/%s",
+	sprintf(fname, "/sys/block/%s/md/%s/%s",
 		sra->sys_name, dev?dev->sys_name:"", name);
 	fd = open(fname, O_WRONLY);
 	if (fd < 0)
@@ -479,11 +451,11 @@ int sysfs_set_num_signed(struct mdinfo *sra, struct mdinfo *dev,
 
 int sysfs_uevent(struct mdinfo *sra, char *event)
 {
-	char fname[MAX_SYSFS_PATH_LEN];
+	char fname[50];
 	int n;
 	int fd;
 
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/uevent",
+	sprintf(fname, "/sys/block/%s/uevent",
 		sra->sys_name);
 	fd = open(fname, O_WRONLY);
 	if (fd < 0)
@@ -500,10 +472,10 @@ int sysfs_uevent(struct mdinfo *sra, char *event)
 
 int sysfs_attribute_available(struct mdinfo *sra, struct mdinfo *dev, char *name)
 {
-	char fname[MAX_SYSFS_PATH_LEN];
+	char fname[50];
 	struct stat st;
 
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md/%s/%s",
+	sprintf(fname, "/sys/block/%s/md/%s/%s",
 		sra->sys_name, dev?dev->sys_name:"", name);
 
 	return stat(fname, &st) == 0;
@@ -512,10 +484,10 @@ int sysfs_attribute_available(struct mdinfo *sra, struct mdinfo *dev, char *name
 int sysfs_get_fd(struct mdinfo *sra, struct mdinfo *dev,
 		       char *name)
 {
-	char fname[MAX_SYSFS_PATH_LEN];
+	char fname[50];
 	int fd;
 
-	snprintf(fname, MAX_SYSFS_PATH_LEN, "/sys/block/%s/md/%s/%s",
+	sprintf(fname, "/sys/block/%s/md/%s/%s",
 		sra->sys_name, dev?dev->sys_name:"", name);
 	fd = open(fname, O_RDWR);
 	if (fd < 0)
@@ -704,16 +676,6 @@ int sysfs_set_array(struct mdinfo *info, int vers)
 		 * once the reshape completes.
 		 */
 	}
-
-	if (info->consistency_policy == CONSISTENCY_POLICY_PPL) {
-		if (sysfs_set_str(info, NULL, "consistency_policy",
-				  map_num(consistency_policies,
-					  info->consistency_policy))) {
-			pr_err("This kernel does not support PPL. Falling back to consistency-policy=resync.\n");
-			info->consistency_policy = CONSISTENCY_POLICY_RESYNC;
-		}
-	}
-
 	return rv;
 }
 
@@ -723,7 +685,6 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 	char nm[PATH_MAX];
 	char *dname;
 	int rv;
-	int i;
 
 	sprintf(dv, "%d:%d", sd->disk.major, sd->disk.minor);
 	rv = sysfs_set_str(sra, NULL, "new_dev", dv);
@@ -745,10 +706,6 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 	rv = sysfs_set_num(sra, sd, "offset", sd->data_offset);
 	rv |= sysfs_set_num(sra, sd, "size", (sd->component_size+1) / 2);
 	if (sra->array.level != LEVEL_CONTAINER) {
-		if (sra->consistency_policy == CONSISTENCY_POLICY_PPL) {
-			rv |= sysfs_set_num(sra, sd, "ppl_sector", sd->ppl_sector);
-			rv |= sysfs_set_num(sra, sd, "ppl_size", sd->ppl_size);
-		}
 		if (sd->recovery_start == MaxSector)
 			/* This can correctly fail if array isn't started,
 			 * yet, so just ignore status for now.
@@ -758,28 +715,6 @@ int sysfs_add_disk(struct mdinfo *sra, struct mdinfo *sd, int resume)
 			rv |= sysfs_set_num(sra, sd, "slot", sd->disk.raid_disk);
 		if (resume)
 			sysfs_set_num(sra, sd, "recovery_start", sd->recovery_start);
-	}
-	if (sd->bb.supported) {
-		if (sysfs_set_str(sra, sd, "state", "external_bbl")) {
-			/*
-			 * backward compatibility - if kernel doesn't support
-			 * bad blocks for external metadata, let it continue
-			 * as long as there are none known so far
-			 */
-			if (sd->bb.count) {
-				pr_err("The kernel has no support for bad blocks in external metadata\n");
-				return -1;
-			}
-		}
-
-		for (i = 0; i < sd->bb.count; i++) {
-			char s[30];
-			const struct md_bb_entry *entry = &sd->bb.entries[i];
-
-			snprintf(s, sizeof(s) - 1, "%llu %d\n", entry->sector,
-				 entry->length);
-			rv |= sysfs_set_str(sra, sd, "bad_blocks", s);
-		}
 	}
 	return rv;
 }

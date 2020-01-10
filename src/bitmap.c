@@ -47,13 +47,13 @@ mapping_t bitmap_states[] = {
 	{ NULL, -1 }
 };
 
-static const char *bitmap_state(int state_num)
+const char *bitmap_state(int state_num)
 {
 	char *state = map_num(bitmap_states, state_num);
 	return state ? state : "Unknown";
 }
 
-static const char *human_chunksize(unsigned long bytes)
+const char *human_chunksize(unsigned long bytes)
 {
 	static char buf[16];
 	char *suffixes[] = { "B", "KB", "MB", "GB", "TB", NULL };
@@ -95,7 +95,7 @@ static inline int count_dirty_bits_byte(char byte, int num_bits)
 	return num;
 }
 
-static int count_dirty_bits(char *buf, int num_bits)
+int count_dirty_bits(char *buf, int num_bits)
 {
 	int i, num = 0;
 
@@ -108,7 +108,22 @@ static int count_dirty_bits(char *buf, int num_bits)
 	return num;
 }
 
-static bitmap_info_t *bitmap_fd_read(int fd, int brief)
+/* calculate the size of the bitmap given the array size and bitmap chunksize */
+unsigned long long bitmap_bits(unsigned long long array_size,
+				unsigned long chunksize)
+{
+	return (array_size * 512 + chunksize - 1) / chunksize;
+}
+
+unsigned long bitmap_sectors(struct bitmap_super_s *bsb)
+{
+	unsigned long long bits = bitmap_bits(__le64_to_cpu(bsb->sync_size),
+					      __le32_to_cpu(bsb->chunksize));
+	int bits_per_sector = 8*512;
+	return (bits + bits_per_sector - 1) / bits_per_sector;
+}
+
+bitmap_info_t *bitmap_fd_read(int fd, int brief)
 {
 	/* Note: fd might be open O_DIRECT, so we must be
 	 * careful to align reads properly
@@ -179,51 +194,54 @@ out:
 	return info;
 }
 
-static int
-bitmap_file_open(char *filename, struct supertype **stp, int node_num)
+int bitmap_file_open(char *filename, struct supertype **stp)
 {
 	int fd;
 	struct stat stb;
 	struct supertype *st = *stp;
 
-	fd = open(filename, O_RDONLY|O_DIRECT);
-	if (fd < 0) {
-		pr_err("failed to open bitmap file %s: %s\n",
-		       filename, strerror(errno));
+	if (stat(filename, &stb) < 0) {
+		pr_err("failed to find file %s: %s\n",
+			filename, strerror(errno));
 		return -1;
 	}
-
-	if (fstat(fd, &stb) < 0) {
-		pr_err("fstat failed for %s: %s\n", filename, strerror(errno));
-		close(fd);
-		return -1;
-	}
-	if ((stb.st_mode & S_IFMT) == S_IFBLK) {
+	if ((S_IFMT & stb.st_mode) == S_IFBLK) {
+		fd = open(filename, O_RDONLY|O_DIRECT);
+		if (fd < 0) {
+			pr_err("failed to open bitmap file %s: %s\n",
+				filename, strerror(errno));
+			return -1;
+		}
 		/* block device, so we are probably after an internal bitmap */
-		if (!st)
-			st = guess_super(fd);
+		if (!st) st = guess_super(fd);
 		if (!st) {
 			/* just look at device... */
 			lseek(fd, 0, 0);
 		} else if (!st->ss->locate_bitmap) {
 			pr_err("No bitmap possible with %s metadata\n",
 				st->ss->name);
-			close(fd);
 			return -1;
 		} else {
-			if (st->ss->locate_bitmap(st, fd, node_num)) {
+			if (st->ss->locate_bitmap(st, fd)) {
 				pr_err("%s doesn't have bitmap\n", filename);
-				close(fd);
 				fd = -1;
 			}
 		}
+
 		*stp = st;
+	} else {
+		fd = open(filename, O_RDONLY|O_DIRECT);
+		if (fd < 0) {
+			pr_err("failed to open bitmap file %s: %s\n",
+				filename, strerror(errno));
+			return -1;
+		}
 	}
 
 	return fd;
 }
 
-static __u32 swapl(__u32 l)
+__u32 swapl(__u32 l)
 {
 	char *c = (char*)&l;
 	char t= c[0];
@@ -249,7 +267,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	int fd, i;
 	__u32 uuid32[4];
 
-	fd = bitmap_file_open(filename, &st, 0);
+	fd = bitmap_file_open(filename, &st);
 	if (fd < 0)
 		return rv;
 
@@ -257,7 +275,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 	if (!info)
 		return rv;
 	sb = &info->sb;
-	if (sb->magic != BITMAP_MAGIC) {
+	if (sb->magic != BITMAP_MAGIC && md_get_version(fd) > 0) {
 		pr_err("This is an md array.  To view a bitmap you need to examine\n");
 		pr_err("a member device, not the array.\n");
 		pr_err("Reporting bitmap that would be used if this array were used\n");
@@ -330,21 +348,11 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 		printf("   Cluster nodes : %d\n", sb->nodes);
 		printf("    Cluster name : %-64s\n", sb->cluster_name);
 		for (i = 0; i < (int)sb->nodes; i++) {
-			st = NULL;
-			free(info);
-			fd = bitmap_file_open(filename, &st, i);
-			if (fd < 0) {
-				printf("   Unable to open bitmap file on node: %i\n", i);
-
-				continue;
+			if (i) {
+				free(info);
+				info = bitmap_fd_read(fd, brief);
+				sb = &info->sb;
 			}
-			info = bitmap_fd_read(fd, brief);
-			if (!info) {
-				close(fd);
-				printf("   Unable to read bitmap on node: %i\n", i);
-				continue;
-			}
-			sb = &info->sb;
 			if (sb->magic != BITMAP_MAGIC)
 				pr_err("invalid bitmap magic 0x%x, the bitmap file appears to be corrupted\n", sb->magic);
 
@@ -359,7 +367,7 @@ int ExamineBitmap(char *filename, int brief, struct supertype *st)
 			printf("          Bitmap : %llu bits (chunks), %llu dirty (%2.1f%%)\n",
 			       info->total_bits, info->dirty_bits,
 			       100.0 * info->dirty_bits / (info->total_bits?:1));
-			 close(fd);
+
 		}
 	}
 

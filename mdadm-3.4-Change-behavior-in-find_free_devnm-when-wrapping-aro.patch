@@ -1,0 +1,30 @@
+From 2e466cce45ac2397ea426a765c829c621901664b Mon Sep 17 00:00:00 2001
+From: Mike Lovell <mlovell@bluehost.com>
+Date: Wed, 18 May 2016 12:23:14 -0600
+Subject: [PATCH 2/2] Change behavior in find_free_devnm when wrapping around.
+
+Newer kernels don't allow for specifying an array larger than 511. This
+makes it so find_free_devnm wraps to 511 instead of 2^20 - 1.
+
+Signed-off-by: Mike Lovell <mlovell@bluehost.com>
+Signed-off-by: Jes Sorensen <Jes.Sorensen@redhat.com>
+---
+ mdopen.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mdopen.c b/mdopen.c
+index e71d758..f818fdf 100644
+--- a/mdopen.c
++++ b/mdopen.c
+@@ -439,7 +439,7 @@ char *find_free_devnm(int use_partitions)
+ 	static char devnm[32];
+ 	int devnum;
+ 	for (devnum = 127; devnum != 128;
+-	     devnum = devnum ? devnum-1 : (1<<20)-1) {
++	     devnum = devnum ? devnum-1 : (1<<9)-1) {
+ 
+ 		if (use_partitions)
+ 			sprintf(devnm, "md_d%d", devnum);
+-- 
+2.7.4
+

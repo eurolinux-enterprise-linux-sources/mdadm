@@ -57,7 +57,6 @@ int main(int argc, char *argv[])
 	struct mddev_dev *devlist = NULL;
 	struct mddev_dev **devlistend = & devlist;
 	struct mddev_dev *dv;
-	mdu_array_info_t array;
 	int devs_found = 0;
 	char *symlinks = NULL;
 	int grow_continue = 0;
@@ -79,7 +78,6 @@ int main(int argc, char *argv[])
 		.level		= UnSet,
 		.layout		= UnSet,
 		.bitmap_chunk	= UnSet,
-		.consistency_policy	= CONSISTENCY_POLICY_UNKNOWN,
 	};
 
 	char sys_hostname[256];
@@ -91,8 +89,7 @@ int main(int argc, char *argv[])
 	int oneshot = 0;
 	int spare_sharing = 1;
 	struct supertype *ss = NULL;
-	enum flag_mode writemostly = FlagDefault;
-	enum flag_mode failfast = FlagDefault;
+	int writemostly = 0;
 	char *shortopt = short_options;
 	int dosyslog = 0;
 	int rebuild_map = 0;
@@ -104,15 +101,14 @@ int main(int argc, char *argv[])
 	FILE *outf;
 
 	int mdfd = -1;
-	int locked = 0;
 
 	srandom(time(0) ^ getpid());
 
-	ident.uuid_set = 0;
+	ident.uuid_set=0;
 	ident.level = UnSet;
 	ident.raid_disks = UnSet;
-	ident.super_minor = UnSet;
-	ident.devices = 0;
+	ident.super_minor= UnSet;
+	ident.devices=0;
 	ident.spare_group = NULL;
 	ident.autof = 0;
 	ident.st = NULL;
@@ -122,14 +118,10 @@ int main(int argc, char *argv[])
 	ident.container = NULL;
 	ident.member = NULL;
 
-	if (get_linux_version() < 2006015) {
-		pr_err("This version of mdadm does not support kernels older than 2.6.15\n");
-		exit(1);
-	}
-
-	while ((option_index = -1),
-	       (opt = getopt_long(argc, argv, shortopt, long_options,
-				  &option_index)) != -1) {
+	while ((option_index = -1) ,
+	       (opt=getopt_long(argc, argv,
+				shortopt, long_options,
+				&option_index)) != -1) {
 		int newmode = mode;
 		/* firstly, some mode-independent options */
 		switch(opt) {
@@ -151,9 +143,9 @@ int main(int argc, char *argv[])
 			continue;
 
 		case 'b':
-			if (mode == ASSEMBLE || mode == BUILD ||
-			    mode == CREATE || mode == GROW ||
-			    mode == INCREMENTAL || mode == MANAGE)
+			if (mode == ASSEMBLE || mode == BUILD || mode == CREATE
+			    || mode == GROW || mode == INCREMENTAL
+			    || mode == MANAGE)
 				break; /* b means bitmap */
 		case Brief:
 			c.brief = 1;
@@ -290,8 +282,8 @@ int main(int argc, char *argv[])
 		} else {
 			/* special case of -c --help */
 			if ((opt == 'c' || opt == ConfigFile) &&
-			    (strncmp(optarg, "--h", 3) == 0 ||
-			     strncmp(optarg, "-h", 2) == 0)) {
+			    ( strncmp(optarg, "--h", 3)==0 ||
+			      strncmp(optarg, "-h", 2)==0)) {
 				fputs(Help_config, stdout);
 				exit(0);
 			}
@@ -303,7 +295,6 @@ int main(int argc, char *argv[])
 					dv->devname = optarg;
 					dv->disposition = devmode;
 					dv->writemostly = writemostly;
-					dv->failfast = failfast;
 					dv->used = 0;
 					dv->next = NULL;
 					*devlistend = dv;
@@ -360,7 +351,6 @@ int main(int argc, char *argv[])
 			dv->devname = optarg;
 			dv->disposition = devmode;
 			dv->writemostly = writemostly;
-			dv->failfast = failfast;
 			dv->used = 0;
 			dv->next = NULL;
 			*devlistend = dv;
@@ -403,7 +393,7 @@ int main(int argc, char *argv[])
 				pr_err("metadata information already given\n");
 				exit(2);
 			}
-			for(i = 0; !ss && superlist[i]; i++)
+			for(i=0; !ss && superlist[i]; i++)
 				ss = superlist[i]->match_metadata_desc(optarg);
 
 			if (!ss) {
@@ -419,20 +409,12 @@ int main(int argc, char *argv[])
 		case O(CREATE,'W'):
 		case O(CREATE,WriteMostly):
 			/* set write-mostly for following devices */
-			writemostly = FlagSet;
+			writemostly = 1;
 			continue;
 
 		case O(MANAGE,'w'):
 			/* clear write-mostly for following devices */
-			writemostly = FlagClear;
-			continue;
-
-		case O(MANAGE,FailFast):
-		case O(CREATE,FailFast):
-			failfast = FlagSet;
-			continue;
-		case O(MANAGE,NoFailFast):
-			failfast = FlagClear;
+			writemostly = 2;
 			continue;
 
 		case O(GROW,'z'):
@@ -442,12 +424,14 @@ int main(int argc, char *argv[])
 				pr_err("size may only be specified once. Second value is %s.\n", optarg);
 				exit(2);
 			}
-			if (strcmp(optarg, "max") == 0)
+			if (strcmp(optarg, "max")==0)
 				s.size = MAX_SIZE;
 			else {
 				s.size = parse_size(optarg);
-				if (s.size == INVALID_SECTORS || s.size < 8) {
-					pr_err("invalid size: %s\n", optarg);
+				if (s.size == INVALID_SECTORS ||
+				    s.size < 8) {
+					pr_err("invalid size: %s\n",
+						optarg);
 					exit(2);
 				}
 				/* convert sectors to K */
@@ -479,7 +463,8 @@ int main(int argc, char *argv[])
 				pr_err("data-offset may only be specified one. Second value is %s.\n", optarg);
 				exit(2);
 			}
-			if (mode == CREATE && strcmp(optarg, "variable") == 0)
+			if (mode == CREATE &&
+			    strcmp(optarg, "variable") == 0)
 				data_offset = VARIABLE_OFFSET;
 			else
 				data_offset = parse_size(optarg);
@@ -503,9 +488,9 @@ int main(int argc, char *argv[])
 					optarg);
 				exit(2);
 			}
-			if (s.level != 0 && s.level != LEVEL_LINEAR &&
-			    s.level != 1 && s.level != LEVEL_MULTIPATH &&
-			    s.level != LEVEL_FAULTY && s.level != 10 &&
+			if (s.level != 0 && s.level != LEVEL_LINEAR && s.level != 1 &&
+			    s.level != LEVEL_MULTIPATH && s.level != LEVEL_FAULTY &&
+			    s.level != 10 &&
 			    mode == BUILD) {
 				pr_err("Raid level %s not permitted with --build.\n",
 					optarg);
@@ -548,7 +533,7 @@ int main(int argc, char *argv[])
 
 			case 5:
 				s.layout = map_name(r5layout, optarg);
-				if (s.layout == UnSet) {
+				if (s.layout==UnSet) {
 					pr_err("layout %s not understood for raid5.\n",
 						optarg);
 					exit(2);
@@ -556,7 +541,7 @@ int main(int argc, char *argv[])
 				break;
 			case 6:
 				s.layout = map_name(r6layout, optarg);
-				if (s.layout == UnSet) {
+				if (s.layout==UnSet) {
 					pr_err("layout %s not understood for raid6.\n",
 						optarg);
 					exit(2);
@@ -607,11 +592,10 @@ int main(int argc, char *argv[])
 			ident.raid_disks = s.raiddisks;
 			continue;
 		case O(ASSEMBLE, Nodes):
-		case O(GROW, Nodes):
 		case O(CREATE, Nodes):
 			c.nodes = parse_num(optarg);
-			if (c.nodes < 2) {
-				pr_err("clustered array needs two nodes at least: %s\n",
+			if (c.nodes <= 0) {
+				pr_err("invalid number for the number of cluster nodes: %s\n",
 					optarg);
 				exit(2);
 			}
@@ -621,7 +605,7 @@ int main(int argc, char *argv[])
 			c.homecluster = optarg;
 			if (strlen(c.homecluster) > 64) {
 				pr_err("Cluster name too big.\n");
-				exit(2);
+				exit(ERANGE);
 			}
 			continue;
 		case O(CREATE,'x'): /* number of spare (eXtra) disks */
@@ -671,7 +655,7 @@ int main(int argc, char *argv[])
 		case O(MISC,'f'): /* force zero */
 		case O(MISC,Force): /* force zero */
 		case O(MANAGE,Force): /* add device which is too large */
-			c.force = 1;
+			c.force=1;
 			continue;
 			/* now for the Assemble options */
 		case O(ASSEMBLE, FreezeReshape):   /* Freeze reshape during
@@ -718,7 +702,7 @@ int main(int argc, char *argv[])
 				pr_err("super-minor cannot be set twice.  Second value: %s.\n", optarg);
 				exit(2);
 			}
-			if (strcmp(optarg, "dev") == 0)
+			if (strcmp(optarg, "dev")==0)
 				ident.super_minor = -2;
 			else {
 				ident.super_minor = parse_num(optarg);
@@ -747,27 +731,27 @@ int main(int argc, char *argv[])
 				exit(2);
 			}
 			c.update = optarg;
-			if (strcmp(c.update, "sparc2.2") == 0)
+			if (strcmp(c.update, "sparc2.2")==0)
 				continue;
 			if (strcmp(c.update, "super-minor") == 0)
 				continue;
-			if (strcmp(c.update, "summaries") == 0)
+			if (strcmp(c.update, "summaries")==0)
 				continue;
-			if (strcmp(c.update, "resync") == 0)
+			if (strcmp(c.update, "resync")==0)
 				continue;
-			if (strcmp(c.update, "uuid") == 0)
+			if (strcmp(c.update, "uuid")==0)
 				continue;
-			if (strcmp(c.update, "name") == 0)
+			if (strcmp(c.update, "name")==0)
 				continue;
-			if (strcmp(c.update, "homehost") == 0)
+			if (strcmp(c.update, "homehost")==0)
 				continue;
-			if (strcmp(c.update, "home-cluster") == 0)
+			if (strcmp(c.update, "home-cluster")==0)
 				continue;
-			if (strcmp(c.update, "nodes") == 0)
+			if (strcmp(c.update, "nodes")==0)
 				continue;
-			if (strcmp(c.update, "devicesize") == 0)
+			if (strcmp(c.update, "devicesize")==0)
 				continue;
-			if (strcmp(c.update, "no-bitmap") == 0)
+			if (strcmp(c.update, "no-bitmap")==0)
 				continue;
 			if (strcmp(c.update, "bbl") == 0)
 				continue;
@@ -775,20 +759,16 @@ int main(int argc, char *argv[])
 				continue;
 			if (strcmp(c.update, "force-no-bbl") == 0)
 				continue;
-			if (strcmp(c.update, "ppl") == 0)
-				continue;
-			if (strcmp(c.update, "no-ppl") == 0)
-				continue;
 			if (strcmp(c.update, "metadata") == 0)
 				continue;
 			if (strcmp(c.update, "revert-reshape") == 0)
 				continue;
-			if (strcmp(c.update, "byteorder") == 0) {
+			if (strcmp(c.update, "byteorder")==0) {
 				if (ss) {
 					pr_err("must not set metadata type with --update=byteorder.\n");
 					exit(2);
 				}
-				for(i = 0; !ss && superlist[i]; i++)
+				for(i=0; !ss && superlist[i]; i++)
 					ss = superlist[i]->match_metadata_desc(
 						"0.swap");
 				if (!ss) {
@@ -812,7 +792,7 @@ int main(int argc, char *argv[])
 		"     'sparc2.2', 'super-minor', 'uuid', 'name', 'nodes', 'resync',\n"
 		"     'summaries', 'homehost', 'home-cluster', 'byteorder', 'devicesize',\n"
 		"     'no-bitmap', 'metadata', 'revert-reshape'\n"
-		"     'bbl', 'no-bbl', 'force-no-bbl', 'ppl', 'no-ppl'\n"
+		"     'bbl', 'no-bbl', 'force-no-bbl'\n"
 				);
 			exit(outf == stdout ? 0 : 2);
 
@@ -1051,8 +1031,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			if (devmode && devmode != opt &&
-			    (devmode == 'E' ||
-			     (opt == 'E' && devmode != 'Q'))) {
+			    (devmode == 'E' || (opt == 'E' && devmode != 'Q'))) {
 				pr_err("--examine/-E cannot be given with ");
 				if (devmode == 'E') {
 					if (option_index >= 0)
@@ -1106,10 +1085,8 @@ int main(int argc, char *argv[])
 				pr_err("bitmap file needed with -b in --assemble mode\n");
 				exit(2);
 			}
-			if (strcmp(optarg, "internal") == 0 ||
-			    strcmp(optarg, "clustered") == 0) {
-				pr_err("no need to specify --bitmap when assembling"
-					" arrays with internal or clustered bitmap\n");
+			if (strcmp(optarg, "internal")==0) {
+				pr_err("there is no need to specify --bitmap when assembling arrays with internal bitmaps\n");
 				continue;
 			}
 			bitmap_fd = open(optarg, O_RDWR);
@@ -1150,17 +1127,13 @@ int main(int argc, char *argv[])
 		case O(CREATE,Bitmap): /* here we create the bitmap */
 		case O(GROW,'b'):
 		case O(GROW,Bitmap):
-			if (s.bitmap_file) {
-				pr_err("bitmap cannot be set twice. Second value: %s.\n", optarg);
-				exit(2);
-			}
-			if (strcmp(optarg, "internal") == 0 ||
-			    strcmp(optarg, "none") == 0 ||
+			if (strcmp(optarg, "internal")== 0 ||
+			    strcmp(optarg, "none")== 0 ||
 			    strchr(optarg, '/') != NULL) {
 				s.bitmap_file = optarg;
 				continue;
 			}
-			if (strcmp(optarg, "clustered") == 0) {
+			if (strcmp(optarg, "clustered")== 0) {
 				s.bitmap_file = optarg;
 				/* Set the default number of cluster nodes
 				 * to 4 if not already set by user
@@ -1170,7 +1143,7 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			/* probable typo */
-			pr_err("bitmap file must contain a '/', or be 'internal', or be 'clustered', or 'none'\n"
+			pr_err("bitmap file must contain a '/', or be 'internal', or 'none'\n"
 				"       not '%s'\n", optarg);
 			exit(2);
 
@@ -1226,16 +1199,6 @@ int main(int argc, char *argv[])
 
 			s.journaldisks = 1;
 			continue;
-		case O(CREATE, 'k'):
-		case O(GROW, 'k'):
-			s.consistency_policy = map_name(consistency_policies,
-							optarg);
-			if (s.consistency_policy < CONSISTENCY_POLICY_RESYNC) {
-				pr_err("Invalid consistency policy: %s\n",
-				       optarg);
-				exit(2);
-			}
-			continue;
 		}
 		/* We have now processed all the valid options. Anything else is
 		 * an error
@@ -1263,48 +1226,9 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	if (s.journaldisks) {
-		if (s.level < 4 || s.level > 6) {
-			pr_err("--write-journal is only supported for RAID level 4/5/6.\n");
-			exit(2);
-		}
-		if (s.consistency_policy != CONSISTENCY_POLICY_UNKNOWN &&
-		    s.consistency_policy != CONSISTENCY_POLICY_JOURNAL) {
-			pr_err("--write-journal is not supported with consistency policy: %s\n",
-			       map_num(consistency_policies, s.consistency_policy));
-			exit(2);
-		}
-	}
-
-	if (mode == CREATE &&
-	    s.consistency_policy != CONSISTENCY_POLICY_UNKNOWN) {
-		if (s.level <= 0) {
-			pr_err("--consistency-policy not meaningful with level %s.\n",
-			       map_num(pers, s.level));
-			exit(2);
-		} else if (s.consistency_policy == CONSISTENCY_POLICY_JOURNAL &&
-			   !s.journaldisks) {
-			pr_err("--write-journal is required for consistency policy: %s\n",
-			       map_num(consistency_policies, s.consistency_policy));
-			exit(2);
-		} else if (s.consistency_policy == CONSISTENCY_POLICY_PPL &&
-			   s.level != 5) {
-			pr_err("PPL consistency policy is only supported for RAID level 5.\n");
-			exit(2);
-		} else if (s.consistency_policy == CONSISTENCY_POLICY_BITMAP &&
-			   (!s.bitmap_file ||
-			    strcmp(s.bitmap_file, "none") == 0)) {
-			pr_err("--bitmap is required for consistency policy: %s\n",
-			       map_num(consistency_policies, s.consistency_policy));
-			exit(2);
-		} else if (s.bitmap_file &&
-			   strcmp(s.bitmap_file, "none") != 0 &&
-			   s.consistency_policy != CONSISTENCY_POLICY_BITMAP &&
-			   s.consistency_policy != CONSISTENCY_POLICY_JOURNAL) {
-			pr_err("--bitmap is not compatible with consistency policy: %s\n",
-			       map_num(consistency_policies, s.consistency_policy));
-			exit(2);
-		}
+	if (s.journaldisks && (s.level < 4 || s.level > 6)) {
+		pr_err("--write-journal is only supported for RAID level 4/5/6.\n");
+		exit(2);
 	}
 
 	if (!mode && devs_found) {
@@ -1334,14 +1258,15 @@ int main(int argc, char *argv[])
 	 * hopefully it's mostly right but there might be some stuff
 	 * missing
 	 *
-	 * That is mostly checked in the per-mode stuff but...
+	 * That is mosty checked in the per-mode stuff but...
 	 *
 	 * For @,B,C and A without -s, the first device listed must be
 	 * an md device.  We check that here and open it.
 	 */
 
-	if (mode == MANAGE || mode == BUILD || mode == CREATE ||
-	    mode == GROW || (mode == ASSEMBLE && ! c.scan)) {
+	if (mode == MANAGE || mode == BUILD || mode == CREATE
+	    || mode == GROW
+	    || (mode == ASSEMBLE && ! c.scan)) {
 		if (devs_found < 1) {
 			pr_err("an md device must be given in this mode\n");
 			exit(2);
@@ -1391,14 +1316,13 @@ int main(int argc, char *argv[])
 
 	if (c.homehost == NULL && c.require_homehost)
 		c.homehost = conf_get_homehost(&c.require_homehost);
-	if (c.homehost == NULL || strcasecmp(c.homehost, "<system>") == 0) {
+	if (c.homehost == NULL || strcasecmp(c.homehost, "<system>")==0) {
 		if (gethostname(sys_hostname, sizeof(sys_hostname)) == 0) {
 			sys_hostname[sizeof(sys_hostname)-1] = 0;
 			c.homehost = sys_hostname;
 		}
 	}
-	if (c.homehost &&
-	    (!c.homehost[0] || strcasecmp(c.homehost, "<none>") == 0)) {
+	if (c.homehost && (!c.homehost[0] || strcasecmp(c.homehost, "<none>") == 0)) {
 		c.homehost = NULL;
 		c.require_homehost = 0;
 	}
@@ -1422,8 +1346,8 @@ int main(int argc, char *argv[])
 		exit(2);
 	}
 
-	if ((mode == MISC && devmode == 'E') ||
-	    (mode == MONITOR && spare_sharing == 0))
+	if ((mode == MISC && devmode == 'E')
+	    || (mode == MONITOR && spare_sharing == 0))
 		/* Anyone may try this */;
 	else if (geteuid() != 0) {
 		pr_err("must be super-user to perform this action\n");
@@ -1435,22 +1359,6 @@ int main(int argc, char *argv[])
 	if (c.scan && c.verbose < 2)
 		/* --scan implied --brief unless -vv */
 		c.brief = 1;
-
-	if (mode == CREATE) {
-		if (s.bitmap_file && strcmp(s.bitmap_file, "clustered") == 0) {
-			locked = cluster_get_dlmlock();
-			if (locked != 1)
-				exit(1);
-		}
-	} else if (mode == MANAGE || mode == GROW || mode == INCREMENTAL) {
-		if (!md_get_array_info(mdfd, &array) && (devmode != 'c')) {
-			if (array.state & (1 << MD_SB_CLUSTERED)) {
-				locked = cluster_get_dlmlock();
-				if (locked != 1)
-					exit(1);
-			}
-		}
-	}
 
 	switch(mode) {
 	case MANAGE:
@@ -1470,8 +1378,7 @@ int main(int argc, char *argv[])
 		break;
 	case ASSEMBLE:
 		if (devs_found == 1 && ident.uuid_set == 0 &&
-		    ident.super_minor == UnSet && ident.name[0] == 0 &&
-		    !c.scan ) {
+		    ident.super_minor == UnSet && ident.name[0] == 0 && !c.scan ) {
 			/* Only a device has been given, so get details from config file */
 			struct mddev_ident *array_ident = conf_get_ident(devlist->devname);
 			if (array_ident == NULL) {
@@ -1498,7 +1405,7 @@ int main(int argc, char *argv[])
 				pr_err("can only assemble a single array when providing a backup file.\n");
 				exit(1);
 			}
-			for (dv = devlist; dv; dv = dv->next) {
+			for (dv = devlist ; dv ; dv=dv->next) {
 				struct mddev_ident *array_ident = conf_get_ident(dv->devname);
 				if (array_ident == NULL) {
 					pr_err("%s not identified in config file.\n",
@@ -1539,7 +1446,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (s.bitmap_file) {
-			if (strcmp(s.bitmap_file, "internal") == 0 ||
+			if (strcmp(s.bitmap_file, "internal")==0 ||
 			    strcmp(s.bitmap_file, "clustered") == 0) {
 				pr_err("'internal' and 'clustered' bitmaps not supported with --build\n");
 				rv |= 1;
@@ -1553,20 +1460,14 @@ int main(int argc, char *argv[])
 			c.delay = DEFAULT_BITMAP_DELAY;
 
 		if (c.nodes) {
-			if (!s.bitmap_file ||
-			    strcmp(s.bitmap_file, "clustered") != 0) {
+			if (!s.bitmap_file || strcmp(s.bitmap_file, "clustered") != 0) {
 				pr_err("--nodes argument only compatible with --bitmap=clustered\n");
 				rv = 1;
 				break;
 			}
 
-			if (s.level != 1 && s.level != 10) {
-				pr_err("--bitmap=clustered is currently supported with raid1/10 only\n");
-				rv = 1;
-				break;
-			}
-			if (s.level == 10 && !(is_near_layout_10(s.layout) || s.layout == UnSet)) {
-				pr_err("only near layout is supported with clustered raid10\n");
+			if (s.level != 1) {
+				pr_err("--bitmap=clustered is currently supported with RAID mirror only\n");
 				rv = 1;
 				break;
 			}
@@ -1608,8 +1509,7 @@ int main(int argc, char *argv[])
 		} else if (devlist == NULL) {
 			if (devmode == 'S' && c.scan)
 				rv = stop_scan(c.verbose);
-			else if ((devmode == 'D' || devmode == Waitclean) &&
-				 c.scan)
+			else if ((devmode == 'D' || devmode == Waitclean) && c.scan)
 				rv = misc_scan(devmode, &c);
 			else if (devmode == UdevRules)
 				rv = Write_rules(udev_filename);
@@ -1638,10 +1538,10 @@ int main(int argc, char *argv[])
 			else
 				c.delay = 60;
 		}
-		rv = Monitor(devlist, mailaddr, program,
-			     &c, daemonise, oneshot,
-			     dosyslog, pidfile, increments,
-			     spare_sharing);
+		rv= Monitor(devlist, mailaddr, program,
+			    &c, daemonise, oneshot,
+			    dosyslog, pidfile, increments,
+			    spare_sharing);
 		break;
 
 	case GROW:
@@ -1659,10 +1559,7 @@ int main(int argc, char *argv[])
 				rv = 1;
 				break;
 			}
-			if (sysfs_init(&sra, mdfd, NULL)) {
-				rv = 1;
-				break;
-			}
+			sysfs_init(&sra, mdfd, NULL);
 			if (array_size == MAX_SIZE)
 				err = sysfs_set_str(&sra, NULL, "array_size", "default");
 			else
@@ -1678,13 +1575,12 @@ int main(int argc, char *argv[])
 		}
 		if (devs_found > 1 && s.raiddisks == 0 && s.level == UnSet) {
 			/* must be '-a'. */
-			if (s.size > 0 || s.chunk ||
-			    s.layout_str || s.bitmap_file) {
+			if (s.size > 0 || s.chunk || s.layout_str != NULL || s.bitmap_file) {
 				pr_err("--add cannot be used with other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
 			}
-			for (dv = devlist->next; dv; dv = dv->next) {
+			for (dv=devlist->next; dv ; dv=dv->next) {
 				rv = Grow_Add_device(devlist->devname, mdfd,
 						     dv->devname);
 				if (rv)
@@ -1692,7 +1588,7 @@ int main(int argc, char *argv[])
 			}
 		} else if (s.bitmap_file) {
 			if (s.size > 0 || s.raiddisks || s.chunk ||
-			    s.layout_str || devs_found > 1) {
+			    s.layout_str != NULL || devs_found > 1) {
 				pr_err("--bitmap changes cannot be used with other geometry changes in --grow mode\n");
 				rv = 1;
 				break;
@@ -1704,14 +1600,12 @@ int main(int argc, char *argv[])
 			rv = Grow_continue_command(devlist->devname,
 						   mdfd, c.backup_file,
 						   c.verbose);
-		else if (s.size > 0 || s.raiddisks || s.layout_str ||
-			 s.chunk != 0 || s.level != UnSet ||
-			 data_offset != INVALID_SECTORS) {
+		else if (s.size > 0 || s.raiddisks || s.layout_str != NULL
+			 || s.chunk != 0 || s.level != UnSet
+			 || data_offset != INVALID_SECTORS) {
 			rv = Grow_reshape(devlist->devname, mdfd,
 					  devlist->next,
 					  data_offset, &c, &s);
-		} else if (s.consistency_policy != CONSISTENCY_POLICY_UNKNOWN) {
-			rv = Grow_consistency_policy(devlist->devname, mdfd, &c, &s);
 		} else if (array_size == 0)
 			pr_err("no changes to --grow\n");
 		break;
@@ -1757,10 +1651,6 @@ int main(int argc, char *argv[])
 		autodetect();
 		break;
 	}
-	if (locked)
-		cluster_release_dlmlock();
-	if (mdfd > 0)
-		close(mdfd);
 	exit(rv);
 }
 
@@ -1783,7 +1673,7 @@ static int scan_assemble(struct supertype *ss,
 		pr_err("No devices listed in conf file were found.\n");
 		return 1;
 	}
-	for (a = array_list; a; a = a->next) {
+	for (a = array_list; a ; a = a->next) {
 		a->assembled = 0;
 		if (a->autof == 0)
 			a->autof = c->autof;
@@ -1794,7 +1684,7 @@ static int scan_assemble(struct supertype *ss,
 		failures = 0;
 		successes = 0;
 		rv = 0;
-		for (a = array_list; a; a = a->next) {
+		for (a = array_list; a ; a = a->next) {
 			int r;
 			if (a->assembled)
 				continue;
@@ -1828,11 +1718,11 @@ static int scan_assemble(struct supertype *ss,
 				rv2 = Assemble(ss, NULL,
 					       ident,
 					       devlist, c);
-				if (rv2 == 0) {
+				if (rv2==0) {
 					cnt++;
 					acnt++;
 				}
-			} while (rv2 != 2);
+			} while (rv2!=2);
 			/* Incase there are stacked devices, we need to go around again */
 		} while (acnt);
 		if (cnt == 0 && rv == 0) {
@@ -1860,7 +1750,7 @@ static int misc_scan(char devmode, struct context *c)
 	int rv = 0;
 
 	for (members = 0; members <= 1; members++) {
-		for (e = ms; e; e = e->next) {
+		for (e=ms ; e ; e=e->next) {
 			char *name = NULL;
 			struct map_ent *me;
 			struct stat stb;
@@ -1870,9 +1760,11 @@ static int misc_scan(char devmode, struct context *c)
 			if (members != member)
 				continue;
 			me = map_by_devnm(&map, e->devnm);
-			if (me && me->path && strcmp(me->path, "/unknown") != 0)
+			if (me && me->path
+			    && strcmp(me->path, "/unknown") != 0)
 				name = me->path;
-			if (name == NULL || stat(name, &stb) != 0)
+			if (name == NULL ||
+			    stat(name, &stb) != 0)
 				name = get_md_name(e->devnm);
 
 			if (!name) {
@@ -1883,7 +1775,7 @@ static int misc_scan(char devmode, struct context *c)
 			if (devmode == 'D')
 				rv |= Detail(name, c);
 			else
-				rv |= WaitClean(name, c->verbose);
+				rv |= WaitClean(name, -1, c->verbose);
 			put_md_name(name);
 		}
 	}
@@ -1897,7 +1789,7 @@ static int stop_scan(int verbose)
 	/* Due to possible stacking of devices, repeat until
 	 * nothing more can be stopped
 	 */
-	int progress = 1, err;
+	int progress=1, err;
 	int last = 0;
 	int rv = 0;
 	do {
@@ -1906,7 +1798,7 @@ static int stop_scan(int verbose)
 
 		if (!progress) last = 1;
 		progress = 0; err = 0;
-		for (e = ms; e; e = e->next) {
+		for (e=ms ; e ; e=e->next) {
 			char *name = get_md_name(e->devnm);
 			int mdfd;
 
@@ -1941,8 +1833,8 @@ static int misc_list(struct mddev_dev *devlist,
 	struct mddev_dev *dv;
 	int rv = 0;
 
-	for (dv = devlist; dv; dv = (rv & 16) ? NULL : dv->next) {
-		int mdfd = -1;
+	for (dv=devlist ; dv; dv=(rv & 16) ? NULL : dv->next) {
+		int mdfd;
 
 		switch(dv->disposition) {
 		case 'D':
@@ -1961,21 +1853,16 @@ static int misc_list(struct mddev_dev *devlist,
 			}
 			continue;
 		case 'Q':
-			rv |= Query(dv->devname);
-			continue;
+			rv |= Query(dv->devname); continue;
 		case 'X':
-			rv |= ExamineBitmap(dv->devname, c->brief, ss);
-			continue;
+			rv |= ExamineBitmap(dv->devname, c->brief, ss); continue;
 		case ExamineBB:
-			rv |= ExamineBadblocks(dv->devname, c->brief, ss);
-			continue;
+			rv |= ExamineBadblocks(dv->devname, c->brief, ss); continue;
 		case 'W':
 		case WaitOpt:
-			rv |= Wait(dv->devname);
-			continue;
+			rv |= Wait(dv->devname); continue;
 		case Waitclean:
-			rv |= WaitClean(dv->devname, c->verbose);
-			continue;
+			rv |= WaitClean(dv->devname, -1, c->verbose); continue;
 		case KillSubarray:
 			rv |= Kill_subarray(dv->devname, c->subarray, c->verbose);
 			continue;
@@ -1999,27 +1886,24 @@ static int misc_list(struct mddev_dev *devlist,
 			rv |= SetAction(dv->devname, c->action);
 			continue;
 		}
-
-		if (dv->devname[0] != '/')
-			mdfd = open_dev(dv->devname);
-		if (dv->devname[0] == '/' || mdfd < 0)
+		if (dv->devname[0] == '/')
 			mdfd = open_mddev(dv->devname, 1);
-
-		if (mdfd >= 0) {
+		else {
+			mdfd = open_dev(dv->devname);
+			if (mdfd < 0)
+				pr_err("Cannot open %s\n", dv->devname);
+		}
+		if (mdfd>=0) {
 			switch(dv->disposition) {
 			case 'R':
 				c->runstop = 1;
-				rv |= Manage_run(dv->devname, mdfd, c);
-				break;
+				rv |= Manage_run(dv->devname, mdfd, c); break;
 			case 'S':
-				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0);
-				break;
+				rv |= Manage_stop(dv->devname, mdfd, c->verbose, 0); break;
 			case 'o':
-				rv |= Manage_ro(dv->devname, mdfd, 1);
-				break;
+				rv |= Manage_ro(dv->devname, mdfd, 1); break;
 			case 'w':
-				rv |= Manage_ro(dv->devname, mdfd, -1);
-				break;
+				rv |= Manage_ro(dv->devname, mdfd, -1); break;
 			}
 			close(mdfd);
 		} else
@@ -2032,15 +1916,13 @@ int SetAction(char *dev, char *action)
 {
 	int fd = open(dev, O_RDONLY);
 	struct mdinfo mdi;
-	int retval;
-
 	if (fd < 0) {
 		pr_err("Couldn't open %s: %s\n", dev, strerror(errno));
 		return 1;
 	}
-	retval = sysfs_init(&mdi, fd, NULL);
+	sysfs_init(&mdi, fd, NULL);
 	close(fd);
-	if (retval) {
+	if (!mdi.sys_name[0]) {
 		pr_err("%s is no an md array\n", dev);
 		return 1;
 	}

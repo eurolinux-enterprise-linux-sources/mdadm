@@ -1,9 +1,8 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
-Version:     4.1
-%define subversion rc1
-Release:     rc1_2%{?dist}
-Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}-%{subversion}.tar.xz
+Version:     3.4
+Release:     14%{?dist}.1
+Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
 Source3:     mdadm.rules
@@ -12,41 +11,25 @@ Source5:     mdadm-cron
 Source6:     mdmonitor.service
 Source7:     mdadm.conf
 Source8:     mdadm_event.conf
-
-Patch1:      0001-mdadm-fix-use-after-free-after-free_mdstat.patch
-Patch2:      0002-imsm-Allow-create-RAID-volume-with-link-to-container.patch
-Patch3:      0003-tests-func.sh-Fix-some-total-breakage-in-the-test-sc.patch
-Patch4:      0004-imsm-change-reserved-space-to-4MB.patch
-Patch5:      0005-imsm-add-functions-to-get-and-set-imsm-dev-size.patch
-Patch6:      0006-imsm-pass-already-existing-map-to-imsm_num_data_memb.patch
-Patch7:      0007-imsm-do-not-use-blocks_per_member-in-array-size-calc.patch
-Patch8:      0008-Prevent-create-IMSM-volume-with-size-smaller-than-1M.patch
-Patch9:      0009-mdadm-grow-correct-size-and-chunk_size-casting.patch
-Patch10:     0010-Fix-misspelling-of-alignment-and-geometry.patch
-Patch11:     0011-Do-not-confuse-gcc.patch
-Patch12:     0012-super-intel-Use-memcpy-to-avoid-confusing-gcc.patch
-Patch13:     0013-super-intel-Get-rid-of-unnused-string.patch
-Patch14:     0014-super-intel-Avoid-gcc-8.1-complaining-about-truncati.patch
-Patch15:     0015-super-intel-Do-not-truncate-last-character-of-volume.patch
-Patch16:     0016-imsm-Do-not-block-volume-creation-when-container-has.patch
-Patch17:     0017-imsm-Do-not-require-MDADM_EXPERIMENTAL-flag-anymore.patch
-Patch18:     0018-Monitor-Increase-size-of-percentalert-to-avoid-gcc-w.patch
-Patch19:     0019-mdopen-fix-gcc-8.1-string-overflow-error.patch
-Patch20:     0020-super0-Use-memmove-when-adjusting-sparc2.2-superbloc.patch
-Patch21:     0021-super1-Fix-cases-triggering-gcc-8.1-strncpy-truncate.patch
-Patch22:     0022-super-ddf-Fix-gcc-8.1-overflow-warnings.patch
-Patch23:     0023-Check-major-number-of-block-device-when-querying-md-.patch
-Patch24:     0024-mdadm-test-mdadm-needn-t-make-install-on-the-system.patch
-Patch25:     0025-mdadm-test-correct-tests-testdev-as-testdev-in-02r5g.patch
-Patch26:     0026-gcc-8-coverity-hack.patch
-Patch27:     0027-Assemble.c-Don-t-ignore-faulty-disk-when-array-is-au.patch
-Patch28:     0028-imsm-correct-num_data_stripes-in-metadata-map-for-mi.patch
-
+Patch1:      mdadm-3.4.1-fix-some-type-comparison.patch
+Patch2:      mdadm-3.4-super-intel-ensure-suspended-region-is-removed-when-.patch
+Patch3:      mdadm-3.4-super1-Clear-memory-allocated-for-superblock-bitmap-.patch
 # RHEL customization patches
-Patch195:    mdadm-3.4-udev-race.patch
-Patch196:    mdadm-3.3.2-skip-rules.patch
-Patch197:    mdadm-3.3-udev.patch
-Patch198:    mdadm-2.5.2-static.patch
+Patch4:      mdadm-3.4-IMSM-retry-reading-sync_completed-during-reshape.patch
+Patch5:      mdadm-3.4-imsm-add-handling-of-sync_action-is-equal-to-idle.patch
+Patch6:      mdadm-3.4-imsm-properly-handle-values-of-sync_completed.patch
+Patch7:      mdadm-3.4-The-sys_name-array-in-the-mdinfo-structure-is-20-byt.patch
+Patch8:      mdadm-3.4-Grow_continue_command-remove-dead-code.patch
+Patch9:      mdadm-3.4-check-reshape_active-more-times-before-Grow_continue.patch
+Patch10:     mdadm-3.4-Use-dev_t-for-devnm2devid-and-devid2devnm.patch
+Patch11:     mdadm-3.4-Change-behavior-in-find_free_devnm-when-wrapping-aro.patch
+Patch12:     mdadm-3.4-mdopen-Prevent-overrunning-the-devname-buffer-when-c.patch
+Patch13:     mdadm-3.4-monitor-Make-sure-that-last_checkpoint-is-set-to-0-a.patch
+Patch95:     mdadm-3.4-udev-race.patch
+Patch96:     mdadm-3.3.2-skip-rules.patch
+Patch97:     mdadm-3.3-udev.patch
+Patch98:     mdadm-2.5.2-static.patch
+Patch99:     mdadm-3.4-disable-journal.patch
 URL:         http://www.kernel.org/pub/linux/utils/raid/mdadm/
 License:     GPLv2+
 Group:       System Environment/Base
@@ -62,7 +45,7 @@ Requires: libreport-filesystem
 
 %define _hardened_build 1
 
-%description
+%description 
 The mdadm program is used to create, manage, and monitor Linux MD (software
 RAID) devices.  As such, it provides similar functionality to the raidtools
 package.  However, mdadm is a single program, and it can perform
@@ -70,42 +53,28 @@ almost all functions without a configuration file, though a configuration
 file can be used to help with some common tasks.
 
 %prep
-%setup -q -n %{name}-%{version}_%{subversion}
+%setup -q
 
-%patch1 -p1 -b  .0001
-%patch2 -p1 -b  .0002
-%patch3 -p1 -b  .0003
-%patch4 -p1 -b  .0004
-%patch5 -p1 -b  .0005
-%patch6 -p1 -b  .0006
-%patch7 -p1 -b  .0007
-%patch8 -p1 -b  .0008
-%patch9 -p1 -b  .0009
-%patch10 -p1 -b  .0010
-%patch11 -p1 -b  .0011
-%patch12 -p1 -b  .0012
-%patch13 -p1 -b  .0013
-%patch14 -p1 -b  .0014
-%patch15 -p1 -b  .0015
-%patch16 -p1 -b  .0016
-%patch17 -p1 -b  .0017
-%patch18 -p1 -b  .0018
-%patch19 -p1 -b  .0019
-%patch20 -p1 -b  .0020 
-%patch21 -p1 -b  .0021
-%patch22 -p1 -b  .0022
-%patch23 -p1 -b  .0023
-%patch24 -p1 -b  .0024
-%patch25 -p1 -b  .0025
-%patch26 -p1 -b  .0026
-%patch27 -p1 -b  .0027
-%patch28 -p1 -b  .0028
+%patch1  -p1 -b .comparision
+%patch2  -p1 -b .stop-reshape
+%patch3  -p1 -b .clear
+%patch4  -p1 -b .retry
+%patch5  -p1 -b .syncaction
+%patch6  -p1 -b .synccompleted
+%patch7  -p1 -b .sysname
+%patch8  -p1 -b .dead
+%patch9  -p1 -b .before
+%patch10  -p1 -b .devt
+%patch11  -p1 -b .wrap
+%patch12  -p1 -b .overrun
+%patch13  -p1 -b .monitorresync
 
 # RHEL customization patches
-%patch195 -p1 -b .race
-%patch196 -p1 -b .rules
-%patch197 -p1 -b .udev
-%patch198 -p1 -b .static
+%patch95 -p1 -b .race
+%patch96 -p1 -b .rules
+%patch97 -p1 -b .udev
+%patch98 -p1 -b .static
+%patch99 -p1 -b .journal
 
 %build
 make %{?_smp_mflags} CXFLAGS="$RPM_OPT_FLAGS" LDFLAGS="$RPM_LD_FLAGS" SYSCONFDIR="%{_sysconfdir}" mdadm mdmon
@@ -167,79 +136,17 @@ rm -rf %{buildroot}
 /etc/libreport/events.d/*
 
 %changelog
-* Thu Aug 02 2018 Xiao Ni <xni@redhat.com> - 4.1-rc1-2
-- Fix two IMSM bugs
-- Resolves rhbz#1602362 and rhbz#1602358
-
-* Fri Jun 22 2018 Xiao Ni <xni@redhat.com> - 4.1-rc1-1
-- Upgrade to upstream mdadm-4.1-rc1
-- Resolves rhbz#1494472
-
-* Wed Feb 07 2018 Xiao Ni <xni@redhat.com> - 4.0-13
-- stop previous reshape process first 
-- Resolves rhbz#1507415
-
-* Wed Jan 31 2018 Xiao Ni <xni@redhat.com> - 4.0-12
-- Don't take spare without defined domain by imsm
-- Resolves rhbz#1535436
-
-* Fri Jan 12 2018 Xiao Ni <xni@redhat.com> - 4.0-11
-- Fix some IMSM bugs 
-- Resolves rhbz#1507439 rhbz#1516800 rhbz#1528267
-
-* Mon Dec 11 2017 Xiao Ni <xni@redhat.com> - 4.0-10
-- Disable raid5 journal function
-- Resolves rhbz#1518477
-
-* Fri Nov 03 2017 Xiao Ni <xni@redhat.com> - 4.0-9
-- Enable raid5 journal function
-- Resolves rhbz1505611
-
-* Fri Nov 03 2017 Xiao Ni <xni@redhat.com> - 4.0-8
-- Support for multiple-ppl in mdadm
-- Resolves rhbz#1500638
-
-* Fri Nov 03 2017 Xiao Ni <xni@redhat.com> - 4.0-7
-- Support adding flags for mdmonitor.service
-- Resolves rhbz#1320018
-
-* Mon Sep 18 2017 Xiao Ni <xni@redhat.com> - 4.0-6
-- Update to the latest upstream
-- Resolves rhbz#1455936
-
-* Mon Jun 12 2017 Nigel Croxon <ncroxon@redhat.com> - 4.0-5
-- RAID array grow not blocked when PPL is enabled
-- Resolves rhbz#1460141
-
-* Wed May 31 2017 Xiao Ni <xni@redhat.com> - 4.0-4
-- Imsm should not allow combing 512 and 4096 sector size disks in
-  one volume and Wrong array size shown for array built on 4096
-  sector size disks
-- Resolves rhbz#1454390 and rhbz#1454379
-
-* Wed May 17 2017 Xiao Ni <xni@redhat.com> - 4.0-3
-- Support for Partial Parity Log
-- Resolves rhbz#1450057
-
-* Thu Apr 13 2017 Nigel Croxon <ncroxon@redhat.com> - 4.0-2
-- Rebuilt for submission
-- Resolves rhbz#1385946
-
-* Sun Feb 26 2017 Xiao Ni <xni@redhat.com> - 4.0-1
-- Update to upstream 4.0
-- Resolves rhbz#1380017
-
-* Wed Nov 16 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-15
+* Fri Dec 9 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-14.1
 - Resolve case where a reshape could hang if started right after the
-  completion of a resync.
-- Resolves rhbz#1386700
+  completion of a resync. z-stream fix
+- Resolves rhbz#1402434
 
 * Tue Sep 27 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-14
 - The fix for 1331709 caused a problem with container arrays (IMSM) as
   these can show up with a valid size of 0. Work around this to only
   exit for non container arrays.
 - Resolves rhbz#1379194
-
+  
 * Wed Sep 14 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-13
 - Make udev-md-array-arrays.rules more resilient to races if arrays are
   assembled and stopped and reassembled quick after each other.
@@ -286,7 +193,7 @@ rm -rf %{buildroot}
 - Resolves rhbz#1324637
 
 * Thu Apr 28 2016 Xiao Ni <xni@redhat.com> - 3.4-3
-- Fix Degraded Raid1 array becomes inactive after rebooting
+- Fix Degraded Raid1 array becomes inactive after rebooting 
 - Resolves rhbz#1290494
 
 * Tue Mar 1 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-2
@@ -373,7 +280,7 @@ rm -rf %{buildroot}
 
 * Thu Oct 10 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-22
 - Check for DM_UDEV_DISABLE_OTHER_RULES_FLAG instead of
-  DM_UDEV_DISABLE_DISK_RULES_FLAG in 65-md-incremental.rules
+  DM_UDEV_DISABLE_DISK_RULES_FLAG in 65-md-incremental.rules 
 - Resolves bz1015515
 
 * Thu Aug 29 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-21
@@ -384,7 +291,7 @@ rm -rf %{buildroot}
 
 * Wed Apr 24 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-19
 - Fix problem where  rebuild of IMSM RAID5 volume started in OROM,
-  does not proceed in OS
+  does not proceed in OS 
 - Resolves bz956021 (f18), bz956026 (f17), bz956031 (f19)
 
 * Tue Apr 23 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-18
@@ -497,7 +404,7 @@ rm -rf %{buildroot}
 
 * Wed Jul 18 2012 Karsten Hopp <karsten@redhat.com> 3.2.5-5
 - include <linux/types.h> in some to avoid type clashes.
-  same problem as rhbz #840902
+  same problem as rhbz #840902  
 
 * Mon Jul 16 2012 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.5-4
 - Move /etc/tmpfiles.d/mdadm.conf to /lib/tmpfiles.d/ to comply with
@@ -572,7 +479,7 @@ rm -rf %{buildroot}
 * Thu Feb 16 2012 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.3-5
 - Fix issue with devices failing to be added to a raid using bitmaps,
   due to trying to write the bitmap with mis-aligned buffers using
-  O_DIRECT
+  O_DIRECT 
 - Resolves: bz789898 (f16) bz791189 (f15)
 
 * Mon Jan 30 2012 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.3-4
@@ -872,7 +779,7 @@ rm -rf %{buildroot}
 - Modify mdadm to put its mapfile in /dev/md instead of /var/run/mdadm
   since at startup /var/run/mdadm is read-only by default and this
   breaks incremental assembly
-- Change how mdadm decides to assemble incremental devices using their
+- Change how mdadm decides to assemble incremental devices using their 
   preferred name or a random name to avoid possible conflicts when plugging
   a foreign array into a host
 
@@ -927,7 +834,7 @@ rm -rf %{buildroot}
 * Thu Apr 17 2008 Bill Nottingham <notting@redhat.com> - 2.6.4-4
 - make /dev/md if necessary in incremental mode (#429604)
 - open RAID devices with O_EXCL to avoid racing against other --incremental processes (#433932)
-
+ 
 * Fri Feb  1 2008 Bill Nottingham <notting@redhat.com> - 2.6.4-3
 - add a udev rules file for device assembly (#429604)
 
