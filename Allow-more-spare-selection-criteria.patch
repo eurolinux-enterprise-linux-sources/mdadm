@@ -40,9 +40,9 @@ index 680d318..fe9d644 100644
  			}
  			free(st3);
 @@ -947,7 +948,7 @@ static int array_try_spare(char *devname, int *dfdp, struct dev_policy *pol,
- 					 sra->devs ? sra->devs->data_offset :
- 					 INVALID_SECTORS) <
- 		     sra->component_size) ||
+					 : INVALID_SECTORS)
+		     < sra->component_size)
+		    ||
 -		    (sra->component_size == 0 && devsize < component_size)) {
 +		    (sra->component_size == 0 && devsize < sc.min_size)) {
  			if (verbose > 1)

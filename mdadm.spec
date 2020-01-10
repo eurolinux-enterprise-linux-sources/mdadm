@@ -1,7 +1,7 @@
 Summary:     The mdadm program controls Linux md devices (software RAID arrays)
 Name:        mdadm
 Version:     4.0
-Release:     13%{?dist}
+Release:     5%{?dist}
 Source:      http://www.kernel.org/pub/linux/utils/raid/mdadm/mdadm-%{version}.tar.xz
 Source1:     mdmonitor.init
 Source2:     raid-check
@@ -12,208 +12,30 @@ Source6:     mdmonitor.service
 Source7:     mdadm.conf
 Source8:     mdadm_event.conf
 
-Patch1:      Makefile-Fix-date-to-be-output-in-ISO-format.patch
-Patch2:      imsm-fix-missing-error-message-during-migration1.patch
-Patch3:      Fix-oddity-where-mdadm-did-not-recognise-a-relative-.patch
-Patch4:      mdadm-fix-typo1-in-comment.patch
-Patch5:      mdadm-check-the-nodes-when-operate-clustered1-array.patch
-Patch6:      examine-tidy-up-some-code.patch
-Patch7:      add-man-page-for-symlinks.patch
-Patch8:      mdadm-add-checking-clustered2-bitmap-in-assemble-mode.patch
-Patch9:      mdadm-Add-Wimplicit-fallthrough-0-in-Makefile.patch
-Patch10:     specify-enough-length-when-write-to-buffer.patch
-Patch11:     mdadm-fixed-some-trivial-typos-in-comments-of-mdadm.patch
-Patch12:     mdadm-it-doesn-t-make-sense-to-set-bitmap-twice.patch
-Patch13:     mdadm-mdmon-deleted-the-abort_reshape-never-invoked.patch
-Patch14:     mdadm-Monitor-Fix-NULL-pointer-dereference-when-stat.patch
-Patch15:     Replace-snprintf-with-strncpy-at-some-places-to-avoi.patch
-Patch16:     mdadm-Forced-type-conversion-to-avoid-truncation.patch
-Patch17:     super1-ignore-failfast-flag-for-setting-device-role.patch
-Patch18:     mdadm-bitmap-fixed-typos-in-comments1-of-bitmap.h.patch
-Patch19:     udev-md-raid-assembly.rules-Skip-non-ready-devices.patch
-Patch20:     Retry-HOT_REMOVE_DISK-a-few-times.patch
-Patch21:     mdadm-Build1-check-the-level-parameter-when-build-new.patch
-Patch22:     Introduce1-sys_hot_remove_disk.patch
-Patch23:     Add-force-flag1-to-hot_remove_disk.patch
-Patch24:     Detail-handle-non-existent-arrays-better.patch
-Patch25:     generic-support-for-consistency-policy-and-PPL.patch
-Patch26:     detail-show-consistency-policy.patch
-Patch27:     imsmppl-support.patch
-Patch28:     super1ppl-support.patch
-Patch29:     add-ppl-and-no-ppl-options-for-update.patch
-Patch30:     support-consistency-policy1-change.patch
-Patch31:     mdadm.h-struct-mdinfo-reorganize-ppl-elements-for-be.patch
-Patch32:     super1-replace-hard-coded-values-with-bit-definition.patch
-Patch33:     mdadm-Clean-up-some-ugly-multiple-actions-on-single-.patch
-Patch34:     mdadm-Fixup-a-number-of-whitespace-inconsistency-cas.patch
-Patch35:     util-Cosmetic-changes.patch
-Patch36:     Grow-Fixup-a-pile-of-cosmetic-issues.patch
-Patch37:     util-Introduce2-md_get_array_info.patch
-Patch38:     Incremental-Remove-redundant-call-for-GET_ARRAY_INFO.patch
-Patch39:     util-Introduce3-md_get_disk_info.patch
-Patch40:     util-Introduce4-md_set_array_info.patch
-Patch41:     md_u-Remove-some-unused-ioctl-declarations.patch
-Patch42:     Grow-Remove-unnecessary-optimization.patch
-Patch43:     Grow-Do-not-shadow-an-existing-variable.patch
-Patch44:     mdadm-grow-reshape-would1-be-stuck-from-raid1-to-raid.patch
-Patch45:     imsm-use-rounded-size-for-metadata-initialization.patch
-Patch46:     mdadm.c-fix-compile-error-switch-condition-has-boole.patch
-Patch47:     sysfs-Use-the-presence-of-sys-block-dev-md-as-indica.patch
-Patch48:     sysfs-Make-sysfs_init-return-an-error-code.patch
-Patch49:     mdadm-Create-declaring1-an-existing-struct-within-sam.patch
-Patch50:     Create-Fixup-bad-placement-of-logical-in-multi-line-.patch
-Patch51:     Create-Fixup-various-whitespace-issues1.patch
-Patch52:     util-must_be-container1-Use-sysfs_read-GET_VERSION-to.patch
-Patch53:     util-set_array_info-Simplify-code-since-md_get-versi.patch
-Patch54:     Assemble-Assemble-Stop-checking-kernel-md-driver-ver.patch
-Patch55:     Build2-Stop-bothering-about-supporting-md-driver-olde.patch
-Patch56:     Grow-Stop-bothering-about-md-driver-versions-older-t.patch
-Patch57:     Detail-Stop-bothering1-about-md-drivers-older-than-0..patch
-Patch58:     Create-Remove-all-attemps-to-handle-md-driver-older-.patch
-Patch59:     Manage-Remove-all-references1-to-md_get_version.patch
-Patch60:     Query-Remove-all-references-to-md_get_version.patch
-Patch61:     bitmap-Remove-use-of-md-get-version1.patch
-Patch62:     mdmon-Stop-bothering-about-md-get-version2.patch
-Patch63:     mdopen-open_mddev-Use-md_get_array_info-to-determine1.patch
-Patch64:     mdassemble-Use-md_get_array_info-to-check-for-valid-.patch
-Patch65:     Assemble-Assemble-Get-rid-of-last-use-of-md_get-vers.patch
-Patch66:     util-Finally-kill-off-md_get_version.patch
-Patch67:     mdadm-Fail-for-kernels-older-than-2.6.15.patch
-Patch68:     mdadm.c-fix-compile-warning-mdfd-is-uninitialized.patch
-Patch69:     Revert-mdadm-grow-reshape-would-be-stuck-from-raid1-.patch
-Patch70:     Retire-mdassemble.patch
-Patch71:     super1-Clean-up-various-style-abuses.patch
-Patch72:     mdopen-use-parameters-new_array-to-create-arrays-whe.patch
-Patch73:     mdadm-manpage-update-manpage-for-readonly-parameter.patch
-Patch74:     mdadm-manpage-clustered3-arrays-don-t-support-array-s.patch
-Patch75:     Assemble-Clean1-up-start_array.patch
-Patch76:     Detail-Remove-pre-2.6-code-for-printing-info-on-rebu.patch
-Patch77:     Assemble-Remove-obsolete-test-for-kernels1-older-than.patch
-Patch78:     Detail-Fixup-ugly-if-foo-abuse.patch
-Patch79:     Query-Handle-error-returned-by-fstat.patch
-Patch80:     Query-Use-sysfs-to-obtain-data-if-possible.patch
-Patch81:     sysfs-Parse-array_state-in-sysfs_read.patch
-Patch82:     util-Introduce6-md_array_active-helper.patch
-Patch83:     maps-Terminate-modes-map-correctly.patch
-Patch84:     maps-Use-keyvalue-for-null-terminator-to-indicate-un.patch
-Patch85:     util-Get-rid-of-unused-enoughfd.patch
-Patch86:     mdadm-retire-mdassemble-in-make-everything.patch
-Patch87:     Grow_continue_command-ensure-content-is-properly-ini.patch
-Patch88:     systemd-mdadm-last-resort-use-ConditionPathExists-in.patch
-Patch89:     Detail-ensure-export-names-are-acceptable-as-shell-v.patch
-Patch90:     Query-Quiet-gcc-since-it-cannot-know-errno-0-in-this.patch
-Patch91:     Makefile-Default-to-O2-optimization1.patch
-Patch92:     maps-Remove-incorrect-comment-about-strcmp.patch
-Patch93:     maps-Simplify-implementation-of-map_name.patch
-Patch94:     Don-t-use-UnSet-with-consistency_policy.patch
-Patch95:     Detail-determine2-array-state-from-sysfs.patch
-Patch96:     Detail-Respect-code-lines-are-80-character-wide.patch
-Patch97:     Detail-Reinstate-support-for-not-having-sysfs.patch
-Patch98:     Incremental-Use-md_array_active-where-applicable.patch
-Patch99:     Incremental-Cleanup-some-if-statement-spaghetti.patch
-Patch100:    Create-tell-udev-md-device-is-not-ready-when-first-c.patch
-Patch101:    Incremental-Use-md_array_active-to-determine3-state-o.patch
-Patch102:    Manage-Manage-ro-Use-md_array_active.patch
-Patch103:    IMSM-Initialize-my_vol_raid_dev_num-during-vol-creat.patch
-Patch104:    Grow-Grow_continue_command-Avoid-aliasing-array-vari.patch
-Patch105:    change-back-0644-permission-for-Grow.c.patch
-Patch106:    util-md_array_valid-Introduce5-md_array_valid-helper.patch
-Patch107:    kernel-patch-Remove-obsolete-kernel-patches-against-.patch
-Patch108:    mdassemble-Kill-off-the-last-remains.patch
-Patch109:    mdadm-util-unify-fstat-checking-blkdev1-into-function.patch
-Patch110:    mdadm-util-unify-stat-checking-blkdev-into-function.patch
-Patch111:    Fix-typo2-in-new-udev-rule.patch
-Patch112:    Incremental-returnis-not-a-function.patch
-Patch113:    sysfs-sysfs_read-Count-activedisks-and-failed_disks.patch
-Patch114:    container_members_max-degradation-Switch-to-using-sy.patch
-Patch115:    IncrementalScan-Use-md_array_active-instead-of-mdge.patch
-Patch116:    Mention-endian-in-documentation-for-update-byte-orde.patch
-Patch117:    Monitor-Use-md_array_active-instead-of-manually-fidd.patch
-Patch118:    Monitor-Code-is-80-characters-per-line.patch
-Patch119:    mdadm-md.4-set-page-length-as-1000-to-avoid-warnings.patch
-Patch120:    allow-drives-in-a-container-regardless-of-sector-size.patch
-Patch121:    allocate-buffer-to-support-maximum-sector-size.patch
-Patch122:    dont-allow-disks-with-different-sector-sizein-one.patch
-Patch123:    Allow-more-spare-selection-criteria.patch
-Patch124:    Add-sector-size-as-spare-selection-criterion.patch
-Patch125:    Monitor-check_array-Centralize-exit-path.patch
-Patch126:    Monitor-check_array-reduce-duplicated-error-handling.patch
-Patch127:    Monitor-check_array-declate-mdinfo-instance-globally.patch
-Patch128:    Monitor-check_array-Read-sysfs-entry-earlier.patch
-Patch129:    Monitor-check_array-Obtain-RAID-level-fromsyfs.patch
-Patch130:    Monitor-check_array-Get-faileddisks-from-sysfs.patch
-Patch131:    Monitor-check_array-Get-arraydisks-from-sysfs.patch
-Patch132:    Monitor-check_array-Get-nrdisks-active_disks-and-sp.patch
-Patch133:    sysfs-sysfs_read-Count-workingdisks.patch
-Patch134:    Monitor-checkarray-Use-working_disks-from-sysfs.patch
-Patch135:    Correct-examine-output-for-4kdisks.patch
-Patch136:    retire-the-APIs-that-driver-nolonger-supports.patch
-Patch137:    Monitor-Not-much-point-declaring-mdlist-in-both-fork.patch
-Patch138:    Monitor-mailfrom-is-initialized-correctly.patch
-Patch139:    Monitor-Fixup-apile-of-whitespace-issues.patch
-Patch140:    mdadm-Uninitialized-variable-rdev.patch
-Patch141:    super-ddf-sysfs_read-takes-a-pointer-as-devicename-.patch
-Patch142:    mdadm-Fixup-a-large-number-of-bad-formatting-of-logi.patch
-Patch143:    mdadm-Fixup-morebroken-logical-operator-formatting.patch
-Patch144:    mdadm-Fix-broken-formatting1.patch
-Patch145:    mdadm-Fixup-broken-formatting2.patch
-Patch146:    manpage-badblock-support-for-IMSM.patch
-Patch147:    Detail-don-t-exit-if-ioctl-has-been-successful.patch
-Patch148:    super1-fix-sb-max_dev-when-adding-a-new-disk-inline.patch
-Patch149:    md_u-Remove-unused-ioctl-declaration-of-START_ARRAY.patch
-Patch150:    Grow-set-component-size-prior-to-array-size.patch
-Patch151:    Get-failed-disk-count-fromarray-state.patch
-Patch152:    dont-allow-array-geometry-change-with-ppl-enabled.patch
-Patch153:    dont-allow-to-enable-PPL-reshape-in-progress.patch
-Patch154:    mdadm-test-Convert-code-formatto-use-Tab.patch
-Patch155:    mdadm-test-Refactor-and-revamp-test-script.patch
-Patch156:    mdadm-test-Add-raidtype-to-run-different-raidlevel-c.patch
-Patch157:    mdadm-test-Add-disks-to-support-testing-phsical-devi.patch
-Patch158:    Monitor-don-t-assume-mdadm-parameter-is-a-blockdevi.patch
-Patch159:    super1-Always-round-data-offset-to-1M.patch
-Patch160:    mdadm-r5cache-allow-adding-journal-to-array-without-.patch
-Patch161:    Detail-correct-outputfor-active-arrays.patch
-Patch162:    imsm-rebuild-from-2-disk-RAID10.patch
-Patch163:    Error-messages-should-end-with-a-newline-character.patch
-Patch164:    Use-correct-syntax-for-passing-DEVLINKS-to-mdadm-fro.patch
-Patch165:    super1-only-set-clustered4-flag2-when-bitmap-is-presen.patch
-Patch166:    Don-t-use-exit-ERANGE.patch
-Patch167:    Monitor-containers-don-t-have-the-same-sysfs-propert.patch
-Patch168:    Monitor-Include-containers-in-spare-migration2.patch
-Patch169:    Detail-differentiate-between-container-and-inactive-.patch
-Patch170:    mdadm-bitmap-examine-bitmap-failed1-when-bitmap-is-ex.patch
-Patch171:    mdadm-install-twomore-udev-rules-in-mdadm.spec.patch
-Patch172:    mdadm-set-journal_clean-after-scanning-all-disks.patch
-Patch173:    lib-devid2kname-should-take-a-dev_t.patch
-Patch174:    sysfs_init_dev-takea-dev_t-argument.patch
-Patch175:    Manage-subdevs-Use-a-dev_t.patch
-Patch176:    util-Code-is-80-characterswide.patch
-#The above patches are backported from RHEL7.5 upstream rebase
-Patch177:    Don-t-abort-starting-the-array-if-kernel-does-not-su.patch
-Patch178:    super1add-support-for-multiple-ppls.patch
-Patch179:    imsmadd-support-for-multiple-ppls.patch
-Patch180:    imsm-validate-multiple-ppls-during-assemble.patch
-Patch181:    Zeroout-whole-ppl-space-during-creation-force-assemb.patch
-Patch182:    imsm-switch-to-multiple-ppls-automatically-during-as.patch
-Patch183:    Grow-fix-switching-on-PPL-during-recovery.patch
-Patch184:    imsm-don-t-skip-resync-when-an-invalid-ppl-header-is.patch
-Patch185:    imsm-Write-empty-PPL-header-if-assembling-regular-cl.patch
-Patch186:    imsm-always-do-ppl-recovery-when-starting-a-rebuildi.patch
-Patch187:    imsm-use-correct-map-when-validating-ppl.patch
-Patch188:    imsm-write-initial-ppl-on-a-disk-added-for-rebuild.patch
-Patch189:    mdmon-get-safe-mode-delay-file.patch
-Patch190:    imsm-continue-resync-on-3disk-RAID10.patch
-Patch191:    imsm-Set-disk-slot-number.patch
-Patch192:    managemon-Dont-add-disk-to-the-array-after-it.patch
-Patch193:    Avoid-to-take-spare-without-defined-domain-by-imsm.patch
-Patch194:    stop-previous-reshape-process-first.patch
+Patch1:      add-man-page-for-symlinks.patch
+Patch2:      specify-enough-length-when-write-to-buffer.patch
+Patch3:      generic-support-for-consistency-policy-and-PPL.patch
+Patch4:      detail-show-consistency-policy.patch
+Patch5:      imsmppl-support.patch
+Patch6:      super1-ppl-support.patch
+Patch7:      add-ppl-and-no-ppl-options-for-update.patch
+Patch8:      support-consistency-policy-change.patch
+Patch9:      imsm-use-rounded-size-for-metadata-initialization.patch
+Patch10:     allow-drives-in-a-container-regardless-of-sector-size.patch
+Patch11:     allocate-buffer-to-support-maximum-sector-size.patch
+Patch12:     dont-allow-disks-with-different-sector-size-in-one.patch
+Patch13:     Allow-more-spare-selection-criteria.patch
+Patch14:     Add-sector-size-as-spare-selection-criterion.patch
+Patch15:     Correct-examine-output-for-4k-disks.patch
+Patch16:     dont-allow-array-geometry-change-with-ppl-enabled.patch
+Patch17:     dont-allow-to-enable-PPL-reshape-in-progress.patch
 
 # RHEL customization patches
-Patch195:    mdadm-3.4-udev-race.patch
-Patch196:    mdadm-3.3.2-skip-rules.patch
-Patch197:    mdadm-3.3-udev.patch
-Patch198:    mdadm-2.5.2-static.patch
-Patch199:    disable-journal.patch
+Patch95:     mdadm-3.4-udev-race.patch
+Patch96:     mdadm-3.3.2-skip-rules.patch
+Patch97:     mdadm-3.3-udev.patch
+Patch98:     mdadm-2.5.2-static.patch
+Patch99:     disable-journal.patch
 URL:         http://www.kernel.org/pub/linux/utils/raid/mdadm/
 License:     GPLv2+
 Group:       System Environment/Base
@@ -229,7 +51,7 @@ Requires: libreport-filesystem
 
 %define _hardened_build 1
 
-%description
+%description 
 The mdadm program is used to create, manage, and monitor Linux MD (software
 RAID) devices.  As such, it provides similar functionality to the raidtools
 package.  However, mdadm is a single program, and it can perform
@@ -239,207 +61,30 @@ file can be used to help with some common tasks.
 %prep
 %setup -q
 
-%patch1  -p1 -b .ISO
-%patch2  -p1 -b .migration1
-%patch3  -p1 -b .oddity
-%patch4  -p1 -b .typo1
-%patch5  -p1 -b .clustered1
-%patch6  -p1 -b .tidy
-%patch7  -p1 -b .symlinks
-%patch8  -p1 -b .clustered2
-%patch9  -p1 -b .Wimplicit
-%patch10 -p1 -b .specify
-%patch11 -p1 -b .trivial
-%patch12 -p1 -b .twice
-%patch13 -p1 -b .invoked
-%patch14 -p1 -b .dereference
-%patch15 -p1 -b .Replace
-%patch16 -p1 -b .Forced
-%patch17 -p1 -b .ignore
-%patch18 -p1 -b .comments1
-%patch19 -p1 -b .assembly
-%patch20 -p1 -b .Retry
-%patch21 -p1 -b .Build1
-%patch22 -p1 -b .Introduce1
-%patch23 -p1 -b .force
-%patch24 -p1 -b .existent
-%patch25 -p1 -b .generic
-%patch26 -p1 -b .detail
-%patch27 -p1 -b .imsmppl
-%patch28 -p1 -b .super1ppl
-%patch29 -p1 -b .options
-%patch30 -p1 -b .policy1
-%patch31 -p1 -b .reorganize
-%patch32 -p1 -b .hard
-%patch33 -p1 -b .multiple
-%patch34 -p1 -b .inconsistency
-%patch35 -p1 -b .Cosmetic
-%patch36 -p1 -b .cosmetic
-%patch37 -p1 -b .Introduce2
-%patch38 -p1 -b .redundant
-%patch39 -p1 -b .Introduce3
-%patch40 -p1 -b .Introduce4
-%patch41 -p1 -b .declarations
-%patch42 -p1 -b .unnecessary
-%patch43 -p1 -b .shadow
-%patch44 -p1 -b .would1
-%patch45 -p1 -b .rounded
-%patch46 -p1 -b .switch
-%patch47 -p1 -b .presence
-%patch48 -p1 -b .Make
-%patch49 -p1 -b .declaring1
-%patch50 -p1 -b .multi
-%patch51 -p1 -b .issues1
-%patch52 -p1 -b .container1
-%patch53 -p1 -b .versi
-%patch54 -p1 -b .ver
-%patch55 -p1 -b .Build2
-%patch56 -p1 -b .versions
-%patch57 -p1 -b .bothering1
-%patch58 -p1 -b .attemps
-%patch59 -p1 -b .references1
-%patch60 -p1 -b .references
-%patch61 -p1 -b .version1
-%patch62 -p1 -b .version2
-%patch63 -p1 -b .determine1
-%patch64 -p1 -b .valid
-%patch65 -p1 -b .vers
-%patch66 -p1 -b .Finally
-%patch67 -p1 -b .kernels
-%patch68 -p1 -b .uninitialized
-%patch69 -p1 -b .Revert
-%patch70 -p1 -b .Retire
-%patch71 -p1 -b .abuses
-%patch72 -p1 -b .parameters
-%patch73 -p1 -b .readonly
-%patch74 -p1 -b .clustered3
-%patch75 -p1 -b .Clean1
-%patch76 -p1 -b .pre
-%patch77 -p1 -b .kernels1
-%patch78 -p1 -b .abuse
-%patch79 -p1 -b .Handle
-%patch80 -p1 -b .obtain
-%patch81 -p1 -b .Parse
-%patch82 -p1 -b .Introduce6
-%patch83 -p1 -b .Terminate
-%patch84 -p1 -b .keyvalue
-%patch85 -p1 -b .enoughfd
-%patch86 -p1 -b .everything
-%patch87 -p1 -b .ini
-%patch88 -p1 -b .ConditionPathExists
-%patch89 -p1 -b .export
-%patch90 -p1 -b .Quiet
-%patch91 -p1 -b .optimization1
-%patch92 -p1 -b .incorrect
-%patch93 -p1 -b .implementation
-%patch94 -p1 -b .UnSet
-%patch95 -p1 -b .determine2
-%patch96 -p1 -b .Respect
-%patch97 -p1 -b .Reinstate
-%patch98 -p1 -b .applicable
-%patch99 -p1 -b .Cleanup
-%patch100 -p1 -b .first
-%patch101 -p1 -b .determine3
-%patch102 -p1 -b .ro
-%patch103 -p1 -b .Initialize
-%patch104 -p1 -b .vari
-%patch105 -p1 -b .back
-%patch106 -p1 -b .Introduce5
-%patch107 -p1 -b .against
-%patch108 -p1 -b .remains
-%patch109 -p1 -b .blkdev1
-%patch110 -p1 -b .blkdev
-%patch111 -p1 -b .typo2
-%patch112 -p1 -b .returnis
-%patch113 -p1 -b .activedisks
-%patch114 -p1 -b .degradation
-%patch115 -p1 -b .mdge
-%patch116 -p1 -b .orde
-%patch117 -p1 -b .fidd
-%patch118 -p1 -b .characters
-%patch119 -p1 -b .warnings
-%patch120 -p1 -b .regardless
-%patch121 -p1 -b .allocate
-%patch122 -p1 -b .sizein
-%patch123 -p1 -b .criteria
-%patch124 -p1 -b .criterion
-%patch125 -p1 -b .Centralize
-%patch126 -p1 -b .reduce
-%patch127 -p1 -b .declate
-%patch128 -p1 -b .earlier
-%patch129 -p1 -b .fromsyfs
-%patch130 -p1 -b .faileddisks
-%patch131 -p1 -b .arraydisks
-%patch132 -p1 -b .nrdisks
-%patch133 -p1 -b .workingdisks
-%patch134 -p1 -b .checkarray
-%patch135 -p1 -b .4kdisks
-%patch136 -p1 -b .nolonger
-%patch137 -p1 -b .fork
-%patch138 -p1 -b .mailfrom
-%patch139 -p1 -b .apile
-%patch140 -p1 -b .rdev
-%patch141 -p1 -b .devicename
-%patch142 -p1 -b .logi
-%patch143 -p1 -b .morebroken
-%patch144 -p1 -b .formatting1
-%patch145 -p1 -b .formatting2
-%patch146 -p1 -b .badblock
-%patch147 -p1 -b .successful
-%patch148 -p1 -b .inline
-%patch149 -p1 -b .declaration
-%patch150 -p1 -b .prior
-%patch151 -p1 -b .fromarray
-%patch152 -p1 -b .pplgeometry
-%patch153 -p1 -b .pplreshape
-%patch154 -p1 -b .formatto
-%patch155 -p1 -b .revamp
-%patch156 -p1 -b .raidlevel
-%patch157 -p1 -b .phsical
-%patch158 -p1 -b .blockdevi
-%patch159 -p1 -b .offset
-%patch160 -p1 -b .without
-%patch161 -p1 -b .outputfor
-%patch162 -p1 -b .rebuild
-%patch163 -p1 -b .newline
-%patch164 -p1 -b .fro
-%patch165 -p1 -b .flag2
-%patch166 -p1 -b .ERANGE
-%patch167 -p1 -b .propert
-%patch168 -p1 -b .migration2
-%patch169 -p1 -b .differentiate
-%patch170 -p1 -b .failed1
-%patch171 -p1 -b .twomore
-%patch172 -p1 -b .scanning
-%patch173 -p1 -b .devid2kname
-%patch174 -p1 -b .takea
-%patch175 -p1 -b .subdevs
-%patch176 -p1 -b .characterswide
-%patch177 -p1 -b .abort
-%patch178 -p1 -b .super1add
-%patch179 -p1 -b .imsmadd
-%patch180 -p1 -b .validate
-%patch181 -p1 -b .Zeroout
-%patch182 -p1 -b .automatically
-%patch183 -p1 -b .switching
-%patch184 -p1 -b .invalid
-%patch185 -p1 -b .assembling
-%patch186 -p1 -b .rebuildi
-%patch187 -p1 -b .validating
-%patch188 -p1 -b .initial
-%patch189 -p1 -b .safe
-%patch190 -p1 -b .3disk
-%patch191 -p1 -b .slot
-%patch192 -p1 -b .Dont
-%patch193 -p1 -b .defined
-%patch194 -p1 -b .previous
+%patch1 -p1 -b .symlinks
+%patch2 -p1 -b .specify
+%patch3 -p1 -b .generic
+%patch4 -p1 -b .detail
+%patch5 -p1 -b .imsmppl
+%patch6 -p1 -b .super1
+%patch7 -p1 -b .options
+%patch8 -p1 -b .change
+%patch9 -p1 -b .rounded
+%patch10 -p1 -b .regardless
+%patch11 -p1 -b .maximum
+%patch12 -p1 -b .different
+%patch13 -p1 -b .criteria
+%patch14 -p1 -b .criterion
+%patch15 -p1 -b .output
+%patch16 -p1 -b .pplgeometry
+%patch17 -p1 -b .pplreshape
 
 # RHEL customization patches
-%patch195 -p1 -b .race
-%patch196 -p1 -b .rules
-%patch197 -p1 -b .udev
-%patch198 -p1 -b .static
-%patch199 -p1 -b .disable
+%patch95 -p1 -b .race
+%patch96 -p1 -b .rules
+%patch97 -p1 -b .udev
+%patch98 -p1 -b .static
+%patch99 -p1 -b .journal
 
 %build
 make %{?_smp_mflags} CXFLAGS="$RPM_OPT_FLAGS" LDFLAGS="$RPM_LD_FLAGS" SYSCONFDIR="%{_sysconfdir}" mdadm mdmon
@@ -501,45 +146,13 @@ rm -rf %{buildroot}
 /etc/libreport/events.d/*
 
 %changelog
-* Wed Feb 07 2018 Xiao Ni <xni@redhat.com> - 4.0-13
-- stop previous reshape process first 
-- Resolves rhbz#1507415
-
-* Wed Jan 31 2018 Xiao Ni <xni@redhat.com> - 4.0-12
-- Don't take spare without defined domain by imsm
-- Resolves rhbz#1535436
-
-* Fri Jan 12 2018 Xiao Ni <xni@redhat.com> - 4.0-11
-- Fix some IMSM bugs 
-- Resolves rhbz#1507439 rhbz#1516800 rhbz#1528267
-
-* Mon Dec 11 2017 Xiao Ni <xni@redhat.com> - 4.0-10
-- Disable raid5 journal function
-- Resolves rhbz#1518477
-
-* Fri Nov 03 2017 Xiao Ni <xni@redhat.com> - 4.0-9
-- Enable raid5 journal function
-- Resolves rhbz1505611
-
-* Fri Nov 03 2017 Xiao Ni <xni@redhat.com> - 4.0-8
-- Support for multiple-ppl in mdadm
-- Resolves rhbz#1500638
-
-* Fri Nov 03 2017 Xiao Ni <xni@redhat.com> - 4.0-7
-- Support adding flags for mdmonitor.service
-- Resolves rhbz#1320018
-
-* Mon Sep 18 2017 Xiao Ni <xni@redhat.com> - 4.0-6
-- Update to the latest upstream
-- Resolves rhbz#1455936
-
 * Mon Jun 12 2017 Nigel Croxon <ncroxon@redhat.com> - 4.0-5
 - RAID array grow not blocked when PPL is enabled
 - Resolves rhbz#1460141
 
 * Wed May 31 2017 Xiao Ni <xni@redhat.com> - 4.0-4
-- Imsm should not allow combing 512 and 4096 sector size disks in
-  one volume and Wrong array size shown for array built on 4096
+- Imsm should not allow combing 512 and 4096 sector size disks in 
+  one volume and Wrong array size shown for array built on 4096 
   sector size disks
 - Resolves rhbz#1454390 and rhbz#1454379
 
@@ -565,7 +178,7 @@ rm -rf %{buildroot}
   these can show up with a valid size of 0. Work around this to only
   exit for non container arrays.
 - Resolves rhbz#1379194
-
+  
 * Wed Sep 14 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-13
 - Make udev-md-array-arrays.rules more resilient to races if arrays are
   assembled and stopped and reassembled quick after each other.
@@ -612,7 +225,7 @@ rm -rf %{buildroot}
 - Resolves rhbz#1324637
 
 * Thu Apr 28 2016 Xiao Ni <xni@redhat.com> - 3.4-3
-- Fix Degraded Raid1 array becomes inactive after rebooting
+- Fix Degraded Raid1 array becomes inactive after rebooting 
 - Resolves rhbz#1290494
 
 * Tue Mar 1 2016 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.4-2
@@ -699,7 +312,7 @@ rm -rf %{buildroot}
 
 * Thu Oct 10 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-22
 - Check for DM_UDEV_DISABLE_OTHER_RULES_FLAG instead of
-  DM_UDEV_DISABLE_DISK_RULES_FLAG in 65-md-incremental.rules
+  DM_UDEV_DISABLE_DISK_RULES_FLAG in 65-md-incremental.rules 
 - Resolves bz1015515
 
 * Thu Aug 29 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-21
@@ -710,7 +323,7 @@ rm -rf %{buildroot}
 
 * Wed Apr 24 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-19
 - Fix problem where  rebuild of IMSM RAID5 volume started in OROM,
-  does not proceed in OS
+  does not proceed in OS 
 - Resolves bz956021 (f18), bz956026 (f17), bz956031 (f19)
 
 * Tue Apr 23 2013 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.6-18
@@ -823,7 +436,7 @@ rm -rf %{buildroot}
 
 * Wed Jul 18 2012 Karsten Hopp <karsten@redhat.com> 3.2.5-5
 - include <linux/types.h> in some to avoid type clashes.
-  same problem as rhbz #840902
+  same problem as rhbz #840902  
 
 * Mon Jul 16 2012 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.5-4
 - Move /etc/tmpfiles.d/mdadm.conf to /lib/tmpfiles.d/ to comply with
@@ -898,7 +511,7 @@ rm -rf %{buildroot}
 * Thu Feb 16 2012 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.3-5
 - Fix issue with devices failing to be added to a raid using bitmaps,
   due to trying to write the bitmap with mis-aligned buffers using
-  O_DIRECT
+  O_DIRECT 
 - Resolves: bz789898 (f16) bz791189 (f15)
 
 * Mon Jan 30 2012 Jes Sorensen <Jes.Sorensen@redhat.com> - 3.2.3-4
@@ -1198,7 +811,7 @@ rm -rf %{buildroot}
 - Modify mdadm to put its mapfile in /dev/md instead of /var/run/mdadm
   since at startup /var/run/mdadm is read-only by default and this
   breaks incremental assembly
-- Change how mdadm decides to assemble incremental devices using their
+- Change how mdadm decides to assemble incremental devices using their 
   preferred name or a random name to avoid possible conflicts when plugging
   a foreign array into a host
 
@@ -1253,7 +866,7 @@ rm -rf %{buildroot}
 * Thu Apr 17 2008 Bill Nottingham <notting@redhat.com> - 2.6.4-4
 - make /dev/md if necessary in incremental mode (#429604)
 - open RAID devices with O_EXCL to avoid racing against other --incremental processes (#433932)
-
+ 
 * Fri Feb  1 2008 Bill Nottingham <notting@redhat.com> - 2.6.4-3
 - add a udev rules file for device assembly (#429604)
 
